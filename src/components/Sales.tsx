@@ -29,6 +29,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const [paymentType, setPaymentType] = useState<string>("efectivo");
   const [loading, setLoading] = useState(true);
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
+  const [editingSale, setEditingSale] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState<any>({});
 
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -66,13 +68,34 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const fetchAvailableProducts = async () => {
     try {
       const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .eq("active", true)
-        .gt("stock_quantity", 0);
+        .from("product_barcodes_store")
+        .select(`
+          id,
+          barcode,
+          product_id,
+          store_id,
+          products!product_id (
+            id,
+            name,
+            color,
+            image,
+            cost_price,
+            profit_bob
+          )
+        `)
+        .eq("is_sold", false);
 
       if (error) throw error;
-      setAvailableProducts(data || []);
+
+      // Formatear los datos para incluir el código de barras con el producto
+      const formattedProducts = data?.map((item: any) => ({
+        barcode_id: item.id,
+        barcode: item.barcode,
+        store_id: item.store_id,
+        ...item.products,
+      })) || [];
+
+      setAvailableProducts(formattedProducts);
     } catch (error) {
       console.error("Error fetching available products:", error);
     }
@@ -84,7 +107,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         const term = searchTerm.toLowerCase();
         return (
           product.name.toLowerCase().includes(term) ||
-          product.color.toLowerCase().includes(term)
+          product.color.toLowerCase().includes(term) ||
+          product.barcode.toLowerCase().includes(term)
         );
       })
     : [];
@@ -105,36 +129,21 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
 
   // Manejar selección de producto
   const handleProductSelect = (product: any) => {
-    const existingProduct = selectedProducts.find((p) => p.id === product.id);
+    const existingProduct = selectedProducts.find((p) => p.barcode_id === product.barcode_id);
     if (existingProduct) {
-      // Incrementar cantidad si ya existe
-      const updatedProducts = selectedProducts.map((p) =>
-        p.id === product.id ? { ...p, quantity: p.quantity + 1 } : p
-      );
-      setSelectedProducts(updatedProducts);
-      calculateTotal(updatedProducts);
-    } else {
-      // Agregar nuevo producto
-      const updatedProducts = [...selectedProducts, { ...product, quantity: 1 }];
-      setSelectedProducts(updatedProducts);
-      calculateTotal(updatedProducts);
+      toast.error("Este código de barras ya fue escaneado");
+      return;
     }
+
+    const updatedProducts = [...selectedProducts, { ...product, quantity: 1 }];
+    setSelectedProducts(updatedProducts);
+    calculateTotal(updatedProducts);
     setSearchTerm("");
   };
 
   // Eliminar producto de la venta
-  const removeProductFromSale = (productId: string) => {
-    const updatedProducts = selectedProducts.filter((item) => item.id !== productId);
-    setSelectedProducts(updatedProducts);
-    calculateTotal(updatedProducts);
-  };
-
-  // Actualizar cantidad de producto
-  const updateProductQuantity = (productId: string, newQuantity: number) => {
-    if (newQuantity < 1) return;
-    const updatedProducts = selectedProducts.map((item) =>
-      item.id === productId ? { ...item, quantity: newQuantity } : item
-    );
+  const removeProductFromSale = (barcodeId: string) => {
+    const updatedProducts = selectedProducts.filter((item) => item.barcode_id !== barcodeId);
     setSelectedProducts(updatedProducts);
     calculateTotal(updatedProducts);
   };
@@ -164,39 +173,40 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           {
             id: saleId,
             employee_id: currentEmployee.id,
+            store_id: currentEmployee.store_id,
             total_sale: totalSale,
             type_of_payment: paymentType,
-            quantity_products: selectedProducts.reduce((sum, p) => sum + p.quantity, 0),
+            quantity_products: selectedProducts.length,
             sale_date: new Date().toISOString(),
           },
         ]);
 
       if (saleError) throw saleError;
 
-      // Crear los productos vendidos
+      // Crear los productos vendidos y marcar códigos como vendidos
       for (const product of selectedProducts) {
-        for (let i = 0; i < product.quantity; i++) {
-          const { error: saleProductError } = await supabase
-            .from("sale_product")
-            .insert([
-              {
-                sale_id: saleId,
-                product_id: product.id,
-              },
-            ]);
+        // Insertar en sale_product
+        const { error: saleProductError } = await supabase
+          .from("sale_product")
+          .insert([
+            {
+              sale_id: saleId,
+              product_id: product.id,
+            },
+          ]);
 
-          if (saleProductError) throw saleProductError;
-        }
+        if (saleProductError) throw saleProductError;
 
-        // Actualizar stock del producto
-        const { error: stockUpdateError } = await supabase
-          .from("products")
+        // Marcar código de barras como vendido
+        const { error: barcodeUpdateError } = await supabase
+          .from("product_barcodes_store")
           .update({
-            stock_quantity: product.stock_quantity - product.quantity,
+            is_sold: true,
+            sold_at: new Date().toISOString(),
           })
-          .eq("id", product.id);
+          .eq("id", product.barcode_id);
 
-        if (stockUpdateError) throw stockUpdateError;
+        if (barcodeUpdateError) throw barcodeUpdateError;
       }
 
       // Limpiar formulario
@@ -221,7 +231,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     }
   };
 
-  // Obtener historial de ventas
+  // Obtener historial de ventas (últimas 5)
   const fetchSalesHistory = async () => {
     try {
       const { data: salesData, error: salesError } = await supabase
@@ -235,7 +245,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           employees!employee_id (first_name, last_name)
         `)
         .order("sale_date", { ascending: false })
-        .limit(10);
+        .limit(5);
 
       if (salesError) throw salesError;
 
@@ -337,6 +347,46 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     }
   };
 
+  // Iniciar edición de venta
+  const startEditSale = (sale: SaleHistoryItem) => {
+    setEditingSale(sale.id);
+    setEditFormData({
+      type_of_payment: sale.type_of_payment,
+      total_sale: sale.total_sale,
+    });
+  };
+
+  // Guardar edición de venta
+  const saveEditSale = async () => {
+    if (!editingSale) return;
+
+    try {
+      const { error } = await supabase
+        .from("sales")
+        .update({
+          type_of_payment: editFormData.type_of_payment,
+          total_sale: editFormData.total_sale,
+        })
+        .eq("id", editingSale);
+
+      if (error) throw error;
+
+      toast.success("Venta actualizada exitosamente");
+      setEditingSale(null);
+      setEditFormData({});
+      await fetchSalesHistory();
+    } catch (error) {
+      console.error("Error updating sale:", error);
+      toast.error("Error al actualizar la venta");
+    }
+  };
+
+  // Cancelar edición
+  const cancelEdit = () => {
+    setEditingSale(null);
+    setEditFormData({});
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -347,7 +397,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
 
   return (
     <>
-      <section className="bg-white rounded-lg shadow p-6">
+      <section className="bg-white rounded-lg shadow p-4 md:p-6">
         <h2 className="text-xl font-semibold mb-6">Nueva Venta</h2>
         <Toaster />
         
@@ -370,19 +420,19 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         <div className="space-y-6">
           {/* Búsqueda de productos */}
           <div className="relative">
-            <div className="flex items-center space-x-2 mb-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 mb-4">
               <input
                 type="search"
                 value={searchTerm}
                 ref={searchRef}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar producto por nombre o color..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Buscar producto por nombre, color o código..."
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
               />
               <button
                 type="button"
                 onClick={handleScanner}
-                className="px-3 py-1 text-sm bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
+                className="px-3 py-2 text-sm bg-blue-100 text-blue-600 rounded hover:bg-blue-200 whitespace-nowrap"
               >
                 Buscar
               </button>
@@ -393,7 +443,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                 {filteredProducts.map((product) => (
                   <button
-                    key={product.id}
+                    key={product.barcode_id}
                     onClick={() => handleProductSelect(product)}
                     className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-4"
                   >
@@ -402,13 +452,13 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                       alt={product.name}
                       className="w-12 h-12 object-cover rounded"
                     />
-                    <div>
-                      <p className="font-medium">{product.name}</p>
-                      <p className="text-sm text-gray-600">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{product.name}</p>
+                      <p className="text-sm text-gray-600 truncate">
                         Color: {product.color}
                       </p>
                       <p className="text-sm text-blue-600 font-medium">
-                        {calculateFinalPrice(product.cost_price, product.profit_bob)} Bs. | Stock: {product.stock_quantity}
+                        {calculateFinalPrice(product.cost_price, product.profit_bob)} Bs.
                       </p>
                     </div>
                   </button>
@@ -418,7 +468,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           </div>
 
           {/* Tipo de pago */}
-          <div className="flex items-center space-x-4 mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mb-4">
             <label className="text-sm font-medium text-gray-700">Tipo de Pago:</label>
             <select
               value={paymentType}
@@ -440,8 +490,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               <div className="space-y-4">
                 {selectedProducts.map((product) => (
                   <div
-                    key={product.id}
-                    className="flex items-center justify-between bg-gray-50 p-4 rounded-lg"
+                    key={product.barcode_id}
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-gray-50 p-4 rounded-lg space-y-4 sm:space-y-0"
                   >
                     <div className="flex items-center space-x-4">
                       <img
@@ -449,37 +499,20 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                         alt={product.name}
                         className="w-16 h-16 object-cover rounded"
                       />
-                      <div>
-                        <h4 className="font-medium">{product.name}</h4>
-                        <p className="text-sm text-gray-600">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium truncate">{product.name}</h4>
+                        <p className="text-sm text-gray-600 truncate">
                           Color: {product.color}
                         </p>
                         <p className="text-sm font-medium text-blue-600">
-                          Precio: {calculateFinalPrice(product.cost_price, product.profit_bob)} Bs. c/u
+                          Precio: {calculateFinalPrice(product.cost_price, product.profit_bob)} Bs.
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => updateProductQuantity(product.id, product.quantity - 1)}
-                          className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
-                          disabled={product.quantity <= 1}
-                        >
-                          -
-                        </button>
-                        <span className="w-8 text-center">{product.quantity}</span>
-                        <button
-                          onClick={() => updateProductQuantity(product.id, product.quantity + 1)}
-                          className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
-                          disabled={product.quantity >= product.stock_quantity}
-                        >
-                          +
-                        </button>
-                      </div>
+                    <div className="flex justify-end">
                       <button
-                        onClick={() => removeProductFromSale(product.id)}
-                        className="text-red-600 hover:text-red-800"
+                        onClick={() => removeProductFromSale(product.barcode_id)}
+                        className="text-red-600 hover:text-red-800 text-sm"
                       >
                         Eliminar
                       </button>
@@ -502,7 +535,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               <div className="mt-6 flex justify-end">
                 <button
                   onClick={handleSaleSubmit}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  className="w-full sm:w-auto bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   Registrar Venta
                 </button>
@@ -513,82 +546,226 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       </section>
 
       {/* Historial de ventas */}
-      <section className="bg-white rounded-lg shadow overflow-hidden sm:block my-8 p-6">
-        <h2 className="text-xl font-semibold mb-6">Historial de Ventas</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fecha
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tipo de Pago
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cantidad
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Vendedor
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {salesHistory.map((sale) => (
-                <tr key={sale.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {format(new Date(sale.sale_date), "dd/MM/yyyy HH:mm")}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="capitalize">{sale.type_of_payment}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-600">
-                      {sale.quantity_products} productos
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm font-medium text-green-600">
-                      {sale.total_sale} Bs.
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-900">
-                      {sale.employee_name}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button
-                      onClick={() => handlePrintSale(sale)}
-                      className="text-blue-600 hover:text-blue-900 mr-3"
-                      title="Imprimir"
-                    >
-                      <Printer size={18} />
-                    </button>
-                    <button
-                      className="text-green-600 hover:text-green-900"
-                      title="Editar"
-                    >
-                      <Edit size={18} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {salesHistory.length === 0 && (
+      <section className="bg-white rounded-lg shadow overflow-hidden my-8">
+        <div className="p-4 md:p-6">
+          <h2 className="text-xl font-semibold mb-6">Últimas 5 Ventas</h2>
+          
+          {/* Vista de tabla para escritorio */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                    No hay ventas registradas
-                  </td>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fecha
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tipo de Pago
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Cantidad
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Total
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Vendedor
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Acciones
+                  </th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {salesHistory.map((sale) => (
+                  <tr key={sale.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {format(new Date(sale.sale_date), "dd/MM/yyyy HH:mm")}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {editingSale === sale.id ? (
+                        <select
+                          value={editFormData.type_of_payment}
+                          onChange={(e) => setEditFormData({...editFormData, type_of_payment: e.target.value})}
+                          className="border rounded px-2 py-1 text-sm"
+                        >
+                          <option value="efectivo">Efectivo</option>
+                          <option value="tarjeta">Tarjeta</option>
+                          <option value="transferencia">Transferencia</option>
+                        </select>
+                      ) : (
+                        <span className="capitalize">{sale.type_of_payment}</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {sale.quantity_products} productos
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {editingSale === sale.id ? (
+                        <input
+                          type="number"
+                          value={editFormData.total_sale}
+                          onChange={(e) => setEditFormData({...editFormData, total_sale: parseInt(e.target.value)})}
+                          className="border rounded px-2 py-1 text-sm w-20"
+                        />
+                      ) : (
+                        <span className="font-medium text-green-600">
+                          {sale.total_sale} Bs.
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {sale.employee_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      {editingSale === sale.id ? (
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={saveEditSale}
+                            className="text-green-600 hover:text-green-900"
+                            title="Guardar"
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            className="text-red-600 hover:text-red-900"
+                            title="Cancelar"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handlePrintSale(sale)}
+                            className="text-blue-600 hover:text-blue-900"
+                            title="Imprimir"
+                          >
+                            <Printer size={18} />
+                          </button>
+                          <button
+                            onClick={() => startEditSale(sale)}
+                            className="text-green-600 hover:text-green-900"
+                            title="Editar"
+                          >
+                            <Edit size={18} />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {salesHistory.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                      No hay ventas registradas
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Vista de tarjetas para móvil */}
+          <div className="md:hidden space-y-4">
+            {salesHistory.map((sale) => (
+              <div key={sale.id} className="bg-gray-50 rounded-lg p-4">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="text-sm font-medium">
+                    {format(new Date(sale.sale_date), "dd/MM/yyyy HH:mm")}
+                  </div>
+                  <div className="flex space-x-2">
+                    {editingSale === sale.id ? (
+                      <>
+                        <button
+                          onClick={saveEditSale}
+                          className="text-green-600 hover:text-green-900"
+                          title="Guardar"
+                        >
+                          ✓
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="text-red-600 hover:text-red-900"
+                          title="Cancelar"
+                        >
+                          ✕
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handlePrintSale(sale)}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Imprimir"
+                        >
+                          <Printer size={16} />
+                        </button>
+                        <button
+                          onClick={() => startEditSale(sale)}
+                          className="text-green-600 hover:text-green-900"
+                          title="Editar"
+                        >
+                          <Edit size={16} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Tipo de Pago:</span>
+                    {editingSale === sale.id ? (
+                      <select
+                        value={editFormData.type_of_payment}
+                        onChange={(e) => setEditFormData({...editFormData, type_of_payment: e.target.value})}
+                        className="border rounded px-2 py-1 text-xs"
+                      >
+                        <option value="efectivo">Efectivo</option>
+                        <option value="tarjeta">Tarjeta</option>
+                        <option value="transferencia">Transferencia</option>
+                      </select>
+                    ) : (
+                      <span className="capitalize">{sale.type_of_payment}</span>
+                    )}
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Cantidad:</span>
+                    <span>{sale.quantity_products} productos</span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total:</span>
+                    {editingSale === sale.id ? (
+                      <input
+                        type="number"
+                        value={editFormData.total_sale}
+                        onChange={(e) => setEditFormData({...editFormData, total_sale: parseInt(e.target.value)})}
+                        className="border rounded px-2 py-1 text-xs w-20"
+                      />
+                    ) : (
+                      <span className="font-medium text-green-600">
+                        {sale.total_sale} Bs.
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Vendedor:</span>
+                    <span>{sale.employee_name}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            {salesHistory.length === 0 && (
+              <div className="text-center text-gray-500 py-8">
+                No hay ventas registradas
+              </div>
+            )}
+          </div>
         </div>
       </section>
     </>
