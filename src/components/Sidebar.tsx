@@ -18,6 +18,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface SidebarProps {
   currentPage: string;
@@ -310,7 +311,7 @@ Para cualquier problema o duda, contacta al administrador del sistema.
     <>
       {/* Mobile Menu Button */}
       <button
-        className="fixed top-4 right-4 z-50 md:hidden bg-white p-2 rounded-lg shadow-lg"
+        className="fixed top-4 right-4 z-50 md:hidden bg-gray-800 text-white p-2 rounded-lg shadow-lg"
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
       >
         {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -326,22 +327,22 @@ Para cualquier problema o duda, contacta al administrador del sistema.
 
       {/* Sidebar */}
       <div className={`
-        fixed left-0 top-0 h-full bg-white shadow-lg z-40
+        fixed left-0 top-0 h-full shadow-lg z-40
         transform transition-transform duration-300 ease-in-out
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
         md:translate-x-0 md:w-64 w-64
-      `}>
-        <div className="p-4 border-b border-gray-200">
-          <h1 className="text-2xl font-bold text-gray-800">Axcel</h1>
+      `} style={{ backgroundColor: '#252d42' }}>
+        <div className="p-4 border-b" style={{ borderColor: '#475569' }}>
+          <h1 className="text-2xl font-bold text-white">Axcel</h1>
           {currentEmployee && (
             <div className="mt-1">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-300">
                 {currentEmployee.first_name} {currentEmployee.last_name || ''}
               </p>
               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                 currentEmployee.position === 'administrador' 
-                  ? 'bg-purple-100 text-purple-800' 
-                  : 'bg-blue-100 text-blue-800'
+                  ? 'bg-purple-600 text-purple-100' 
+                  : 'bg-blue-600 text-blue-100'
               }`}>
                 {currentEmployee.position === 'administrador' ? 'Administrador' : 'Ventas'}
               </span>
@@ -358,15 +359,15 @@ Para cualquier problema o duda, contacta al administrador del sistema.
                 <button
                   key={item.id}
                   onClick={() => handlePageChange(item.id)}
-                  className={`w-full flex items-center space-x-3 px-6 py-3 text-left relative
+                  className={`w-full flex items-center space-x-3 px-6 py-3 text-left relative transition-colors
                     ${currentPage === item.id 
-                      ? 'bg-blue-50 text-blue-600 border-r-4 border-blue-600' 
-                      : 'text-gray-600 hover:bg-gray-50'}`}
+                      ? 'bg-blue-600 text-white border-r-4 border-blue-400' 
+                      : 'text-gray-300 hover:bg-gray-700'}`}
                 >
                   <Icon size={20} />
                   <span>{item.label}</span>
                   {isReadonly && (
-                    <span className="ml-auto text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                    <span className="ml-auto text-xs bg-yellow-600 text-yellow-100 px-2 py-1 rounded-full">
                       Solo lectura
                     </span>
                   )}
@@ -377,10 +378,10 @@ Para cualquier problema o duda, contacta al administrador del sistema.
         </nav>
 
         {/* Configuración en la parte inferior */}
-        <div className="border-t border-gray-200">
+        <div className="border-t" style={{ borderColor: '#475569' }}>
           <button
             onClick={() => setIsConfigOpen(!isConfigOpen)}
-            className="w-full flex items-center justify-between px-6 py-3 text-gray-600 hover:bg-gray-50"
+            className="w-full flex items-center justify-between px-6 py-3 text-gray-300 hover:bg-gray-700"
           >
             <div className="flex items-center space-x-3">
               <Settings size={20} />
@@ -391,11 +392,11 @@ Para cualquier problema o duda, contacta al administrador del sistema.
 
           {/* Menú desplegable de configuración */}
           {isConfigOpen && (
-            <div className="bg-gray-50 border-t border-gray-200">
+            <div style={{ backgroundColor: '#1e293b' }} className="border-t" style={{ borderColor: '#475569' }}>
               {/* Manual de uso */}
               <button
                 onClick={() => handleManualDownload(currentEmployee?.position === 'administrador' ? 'admin' : 'ventas')}
-                className="w-full flex items-center space-x-3 px-8 py-3 text-gray-600 hover:bg-gray-100 text-sm"
+                className="w-full flex items-center space-x-3 px-8 py-3 text-gray-300 hover:bg-gray-600 text-sm"
               >
                 <BookOpen size={16} />
                 <span>
@@ -406,7 +407,7 @@ Para cualquier problema o duda, contacta al administrador del sistema.
               {/* Cerrar sesión */}
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center space-x-3 px-8 py-3 text-red-600 hover:bg-red-50 text-sm"
+                className="w-full flex items-center space-x-3 px-8 py-3 text-red-400 hover:bg-red-900 text-sm"
               >
                 <LogOut size={16} />
                 <span>Cerrar Sesión</span>

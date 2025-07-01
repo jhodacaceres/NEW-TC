@@ -53,20 +53,20 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: '#121a2f' }}>
       <div className="max-w-md w-full space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
             Iniciar Sesión
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-center text-sm text-gray-300">
             Sistema de Gestión Empresarial
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(handleLogin)}>
           <div className="space-y-4">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="username" className="block text-sm font-medium text-gray-300">
                 Nombre de Usuario
               </label>
               <input
@@ -78,16 +78,21 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   }
                 })}
                 type="text"
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                style={{ 
+                  backgroundColor: '#1e293b', 
+                  borderColor: '#475569', 
+                  color: '#e2e8f0' 
+                }}
                 placeholder="Ingrese su nombre de usuario"
               />
               {errors.username && (
-                <p className="mt-1 text-sm text-red-600">{errors.username.message as string}</p>
+                <p className="mt-1 text-sm text-red-400">{errors.username.message as string}</p>
               )}
             </div>
             
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-300">
                 Contraseña
               </label>
               <div className="mt-1 relative">
@@ -100,7 +105,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     }
                   })}
                   type={showPassword ? 'text' : 'password'}
-                  className="appearance-none relative block w-full px-3 py-2 pr-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  className="appearance-none relative block w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  style={{ 
+                    backgroundColor: '#1e293b', 
+                    borderColor: '#475569', 
+                    color: '#e2e8f0' 
+                  }}
                   placeholder="Ingrese su contraseña"
                 />
                 <button
@@ -116,7 +126,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </button>
               </div>
               {errors.password && (
-                <p className="mt-1 text-sm text-red-600">{errors.password.message as string}</p>
+                <p className="mt-1 text-sm text-red-400">{errors.password.message as string}</p>
               )}
             </div>
           </div>
@@ -139,7 +149,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </div>
 
           <div className="text-center">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-400">
               Contacte al administrador para obtener credenciales de acceso
             </p>
           </div>
