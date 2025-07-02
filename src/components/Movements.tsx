@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { supabase } from "../lib/supabase";
 import { Calendar, Download } from "lucide-react";
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
 // Extend jsPDF type to include autoTable
