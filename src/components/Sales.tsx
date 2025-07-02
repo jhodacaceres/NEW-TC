@@ -551,8 +551,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     setEditFormData({});
   };
 
-  // Eliminar producto de venta (solo admin)
-  const removeProductFromSale = async (saleId: string, productIndex: number) => {
+  // Eliminar producto de venta registrada (solo admin)
+  const removeProductFromRecordedSale = async (saleId: string, productIndex: number) => {
     if (currentEmployee?.position !== 'administrador') {
       toast.error("Solo los administradores pueden modificar ventas");
       return;
@@ -935,7 +935,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                               </div>
                               {currentEmployee?.position === 'administrador' && (
                                 <button
-                                  onClick={() => removeProductFromSale(sale.id, index)}
+                                  onClick={() => removeProductFromRecordedSale(sale.id, index)}
                                   className="text-red-600 hover:text-red-800 text-xs"
                                 >
                                   Eliminar
