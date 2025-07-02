@@ -69,10 +69,19 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const fetchAvailableProducts = async () => {
     try {
       const employeeData = localStorage.getItem('currentEmployee');
-      if (!employeeData) return;
+      if (!employeeData) {
+        console.warn("No employee data found in localStorage");
+        setAvailableProducts([]);
+        return;
+      }
 
       const employee = JSON.parse(employeeData);
-      if (!employee.store_id) return;
+      if (!employee.store_id) {
+        console.warn("Employee store_id is missing or undefined:", employee);
+        setAvailableProducts([]);
+        toast.error("Error: El empleado no tiene una tienda asignada");
+        return;
+      }
 
       const { data, error } = await supabase
         .from("product_barcodes_store")
@@ -106,6 +115,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       setAvailableProducts(formattedProducts);
     } catch (error) {
       console.error("Error fetching available products:", error);
+      setAvailableProducts([]);
     }
   };
 
@@ -173,6 +183,13 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
 
     if (!currentEmployee) {
       return toast.error("Error: No se pudo identificar el empleado", {
+        duration: 3000,
+        position: "top-right",
+      });
+    }
+
+    if (!currentEmployee.store_id) {
+      return toast.error("Error: El empleado no tiene una tienda asignada", {
         duration: 3000,
         position: "top-right",
       });
@@ -249,7 +266,11 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const fetchSalesHistory = async () => {
     try {
       const employeeData = localStorage.getItem('currentEmployee');
-      if (!employeeData) return;
+      if (!employeeData) {
+        console.warn("No employee data found in localStorage");
+        setSalesHistory([]);
+        return;
+      }
 
       const employee = JSON.parse(employeeData);
       
@@ -266,8 +287,14 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         .order("sale_date", { ascending: false })
         .limit(5);
 
-      // Si no es administrador, filtrar por tienda
+      // Si no es administrador, filtrar por tienda (solo si store_id existe)
       if (employee.position !== 'administrador') {
+        if (!employee.store_id) {
+          console.warn("Employee store_id is missing or undefined for non-admin:", employee);
+          setSalesHistory([]);
+          toast.error("Error: El empleado no tiene una tienda asignada");
+          return;
+        }
         query = query.eq('store_id', employee.store_id);
       }
 
@@ -306,6 +333,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       }
     } catch (error) {
       console.error("Error fetching sales history:", error);
+      setSalesHistory([]);
     }
   };
 
