@@ -28,12 +28,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         throw new Error('Credenciales incorrectas o usuario inactivo');
       }
 
-      // Crear sesión en Supabase Auth (opcional, para mantener consistencia)
-      const { error: authError } = await supabase.auth.signInAnonymously();
-      if (authError) {
-        console.warn('Warning: Could not create auth session:', authError);
-      }
-
       // Guardar información del empleado en localStorage para sesión
       localStorage.setItem('currentEmployee', JSON.stringify({
         id: employee.id,
