@@ -8,8 +8,6 @@ import { supabase } from "../lib/supabase";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
-  Minus,
-  Plus,
 } from "lucide-react";
 
 interface TransferProps {
@@ -32,7 +30,7 @@ interface TransferHistoryItem {
   employee_name: string;
   items: {
     product_name: string;
-    quantity: number;
+    barcode: string;
   }[];
 }
 
@@ -55,7 +53,7 @@ export const TransferComponent: React.FC<TransferProps> = ({
   const toStore = watch("store_destiny_id");
   
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedProducts, setSelectedProducts] = useState<{ product: Product; quantity: number }[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<{ product: Product; barcode_id: string; barcode: string }[]>([]);
   const [availableProducts, setAvailableProducts] = useState<any[]>([]);
   const [transferHistory, setTransferHistory] = useState<TransferHistoryItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -86,7 +84,10 @@ export const TransferComponent: React.FC<TransferProps> = ({
           
           if (storeData) {
             setEmployeeStore(storeData);
-            setValue("store_origin_id", storeData.id);
+            // Solo establecer automáticamente si no es admin
+            if (employee.position !== 'administrador') {
+              setValue("store_origin_id", storeData.id);
+            }
           }
         }
       }
@@ -95,21 +96,22 @@ export const TransferComponent: React.FC<TransferProps> = ({
     fetchCurrentEmployee();
   }, [setValue]);
 
-  // Cargar productos disponibles en la tienda del empleado
+  // Cargar productos disponibles cuando cambie la tienda de origen
   useEffect(() => {
-    if (employeeStore) {
+    if (fromStore) {
       fetchAvailableProducts();
     }
-  }, [employeeStore]);
+  }, [fromStore]);
 
   const fetchAvailableProducts = async () => {
-    if (!employeeStore) return;
+    if (!fromStore) return;
 
     try {
-      // Obtener productos con códigos de barras disponibles en la tienda del empleado
+      // Obtener productos con códigos de barras disponibles en la tienda seleccionada
       const { data, error } = await supabase
         .from("product_barcodes_store")
         .select(`
+          id,
           barcode,
           product_id,
           products!product_id (
@@ -121,15 +123,16 @@ export const TransferComponent: React.FC<TransferProps> = ({
             profit_bob
           )
         `)
-        .eq("store_id", employeeStore.id)
+        .eq("store_id", fromStore)
         .eq("is_sold", false);
 
       if (error) throw error;
 
       // Formatear los datos para incluir el código de barras con el producto
       const formattedProducts = data?.map((item: any) => ({
-        ...item.products,
+        barcode_id: item.id,
         barcode: item.barcode,
+        ...item.products,
       })) || [];
 
       setAvailableProducts(formattedProducts);
@@ -155,42 +158,26 @@ export const TransferComponent: React.FC<TransferProps> = ({
     : [];
 
   // Manejar selección de producto
-  const handleProductSelect = (product: Product) => {
-    if (!selectedProducts.find((p) => p.product.id === product.id)) {
-      setSelectedProducts([...selectedProducts, { product, quantity: 1 }]);
+  const handleProductSelect = (product: any) => {
+    if (!selectedProducts.find((p) => p.barcode_id === product.barcode_id)) {
+      setSelectedProducts([...selectedProducts, { 
+        product, 
+        barcode_id: product.barcode_id,
+        barcode: product.barcode 
+      }]);
     }
     setSearchTerm("");
   };
 
-  // Actualizar cantidad de producto
-  const updateProductQuantity = (productId: string, newQuantity: number) => {
-    if (newQuantity < 1) return;
-    
-    // Verificar que no exceda el stock disponible
-    const availableStock = availableProducts.filter(p => p.id === productId).length;
-    if (newQuantity > availableStock) {
-      toast.error(`Solo hay ${availableStock} unidades disponibles`);
-      return;
-    }
-    
-    setSelectedProducts(
-      selectedProducts.map((item) =>
-        item.product.id === productId 
-          ? { ...item, quantity: newQuantity }
-          : item
-      )
-    );
-  };
-
   // Manejar eliminación de producto
-  const handleDelete = (productId: string) => {
+  const handleDelete = (barcodeId: string) => {
     setIsOpen(true);
-    setProductIdDelete(productId);
+    setProductIdDelete(barcodeId);
   };
 
-  const removeProduct = (productId: string) => {
+  const removeProduct = (barcodeId: string) => {
     setSelectedProducts(
-      selectedProducts.filter((item) => item.product.id !== productId)
+      selectedProducts.filter((item) => item.barcode_id !== barcodeId)
     );
     setProductIdDelete(undefined);
     setIsOpen(false);
@@ -238,52 +225,28 @@ export const TransferComponent: React.FC<TransferProps> = ({
 
       // Crear items de transferencia y mover códigos de barras
       for (const item of selectedProducts) {
-        // Obtener códigos de barras específicos para transferir
-        const { data: barcodesToTransfer } = await supabase
+        // Crear registro de transferencia
+        const { error: itemError } = await supabase
+          .from("transfer_product")
+          .insert([
+            {
+              transfer_id: transferId,
+              product_id: item.product.id,
+              barcode_id: item.barcode_id,
+            },
+          ]);
+
+        if (itemError) throw itemError;
+
+        // Actualizar la tienda del código de barras
+        const { error: barcodeUpdateError } = await supabase
           .from("product_barcodes_store")
-          .select("*")
-          .eq("store_id", fromStore)
-          .eq("product_id", item.product.id)
-          .eq("is_sold", false)
-          .limit(item.quantity);
+          .update({
+            store_id: toStore,
+          })
+          .eq("id", item.barcode_id);
 
-        if (barcodesToTransfer) {
-          for (const barcodeItem of barcodesToTransfer) {
-            // Crear registro de transferencia
-            const { error: itemError } = await supabase
-              .from("transfer_product")
-              .insert([
-                {
-                  transfer_id: transferId,
-                  product_id: item.product.id,
-                },
-              ]);
-
-            if (itemError) throw itemError;
-
-            // Eliminar código de barras de tienda origen
-            const { error: deleteError } = await supabase
-              .from("product_barcodes_store")
-              .delete()
-              .eq("id", barcodeItem.id);
-
-            if (deleteError) throw deleteError;
-
-            // Crear código de barras en tienda destino
-            const { error: createError } = await supabase
-              .from("product_barcodes_store")
-              .insert([
-                {
-                  store_id: toStore,
-                  product_id: item.product.id,
-                  barcode: barcodeItem.barcode,
-                  is_sold: false,
-                },
-              ]);
-
-            if (createError) throw createError;
-          }
-        }
+        if (barcodeUpdateError) throw barcodeUpdateError;
       }
 
       // Limpiar formulario
@@ -353,33 +316,20 @@ export const TransferComponent: React.FC<TransferProps> = ({
               .eq("id", transfer.employee_id)
               .single();
 
-            // Obtener items de la transferencia
+            // Obtener items de la transferencia con códigos de barras
             const { data: itemsData } = await supabase
               .from("transfer_product")
               .select(`
-                product_id
+                product_id,
+                barcode_id,
+                products!product_id (name),
+                product_barcodes_store!barcode_id (barcode)
               `)
               .eq("transfer_id", transfer.id);
 
-            // Obtener nombres de productos y contar cantidades
-            const productCounts: Record<string, number> = {};
-            
-            await Promise.all(
-              (itemsData || []).map(async (item) => {
-                const { data: productData } = await supabase
-                  .from("products")
-                  .select("name")
-                  .eq("id", item.product_id)
-                  .single();
-
-                const productName = productData?.name || "Producto no encontrado";
-                productCounts[productName] = (productCounts[productName] || 0) + 1;
-              })
-            );
-
-            const items = Object.entries(productCounts).map(([name, quantity]) => ({
-              product_name: name,
-              quantity,
+            const items = (itemsData || []).map((item: any) => ({
+              product_name: item.products?.name || "Producto no encontrado",
+              barcode: item.product_barcodes_store?.barcode || "N/A",
             }));
 
             return {
@@ -425,18 +375,13 @@ export const TransferComponent: React.FC<TransferProps> = ({
     }
   }, [searchTerm, availableProducts]);
 
-  // Obtener stock disponible para un producto
-  const getAvailableStock = (productId: string) => {
-    return availableProducts.filter(p => p.id === productId).length;
-  };
-
   return (
     <>
       <Toaster />
       <section className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold mb-6">Nueva Transferencia</h2>
         
-        {/* Información del empleado y tienda origen */}
+        {/* Información del empleado */}
         <div className="mb-6 p-4 bg-blue-50 rounded-lg">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -445,15 +390,44 @@ export const TransferComponent: React.FC<TransferProps> = ({
                 {currentEmployee ? `${currentEmployee.first_name} ${currentEmployee.last_name || ''}` : 'No identificado'}
               </p>
             </div>
-            <div>
-              <p className="text-sm text-gray-600">Tienda de Origen:</p>
-              <p className="font-medium">{employeeStore?.name || 'No asignada'}</p>
-            </div>
+            {currentEmployee?.position !== 'administrador' && employeeStore && (
+              <div>
+                <p className="text-sm text-gray-600">Tienda de Origen:</p>
+                <p className="font-medium">{employeeStore.name}</p>
+              </div>
+            )}
           </div>
         </div>
 
         <form onSubmit={handleSubmit(handleTransferSubmit)} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Desde Tienda - Solo para admin */}
+            {currentEmployee?.position === 'administrador' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Desde Tienda
+                </label>
+                <select
+                  {...register("store_origin_id", {
+                    required: "Debe seleccionar una tienda de origen",
+                  })}
+                  className="mt-1 block w-full p-2 border cursor-pointer rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                >
+                  <option value="">Seleccionar tienda de origen</option>
+                  {stores.map((store) => (
+                    <option key={store.id} value={store.id}>
+                      {store.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.store_origin_id && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.store_origin_id.message as string}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Hacia Tienda */}
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -469,7 +443,7 @@ export const TransferComponent: React.FC<TransferProps> = ({
               >
                 <option value="">Seleccionar tienda</option>
                 {stores
-                  .filter(store => store.id !== employeeStore?.id)
+                  .filter(store => store.id !== fromStore)
                   .map((store) => (
                     <option key={store.id} value={store.id}>
                       {store.name}
@@ -509,7 +483,7 @@ export const TransferComponent: React.FC<TransferProps> = ({
               <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                 {filteredProducts.map((product, index) => (
                   <button
-                    key={`${product.id}-${index}`}
+                    key={`${product.barcode_id}-${index}`}
                     type="button"
                     onClick={() => handleProductSelect(product)}
                     className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-4"
@@ -525,7 +499,7 @@ export const TransferComponent: React.FC<TransferProps> = ({
                         Código: {product.barcode}
                       </p>
                       <p className="text-sm text-gray-500">
-                        Color: {product.color} | Disponible: {getAvailableStock(product.id)}
+                        Color: {product.color}
                       </p>
                     </div>
                   </button>
@@ -541,63 +515,36 @@ export const TransferComponent: React.FC<TransferProps> = ({
                 Productos Seleccionados ({selectedProducts.length})
               </h3>
               <div className="space-y-4">
-                {selectedProducts.map((item) => {
-                  const availableStock = getAvailableStock(item.product.id);
-                  return (
-                    <div
-                      key={item.product.id}
-                      className="flex items-center justify-between bg-gray-50 p-4 rounded-lg"
-                    >
-                      <div className="flex items-center space-x-4">
-                        <img
-                          src={item.product.image || "https://placehold.co/64x64?text=No+Image"}
-                          alt={item.product.name}
-                          className="w-16 h-16 object-cover rounded"
-                        />
-                        <div>
-                          <h4 className="font-medium">{item.product.name}</h4>
-                          <p className="text-sm text-gray-600">
-                            Color: {item.product.color}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            Disponible: {availableStock} unidades
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        {/* Control de cantidad */}
-                        <div className="flex items-center space-x-2">
-                          <button
-                            type="button"
-                            onClick={() => updateProductQuantity(item.product.id, item.quantity - 1)}
-                            className="p-1 bg-gray-200 rounded hover:bg-gray-300"
-                            disabled={item.quantity <= 1}
-                          >
-                            <Minus size={16} />
-                          </button>
-                          <span className="w-12 text-center font-medium">
-                            {item.quantity}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => updateProductQuantity(item.product.id, item.quantity + 1)}
-                            className="p-1 bg-gray-200 rounded hover:bg-gray-300"
-                            disabled={item.quantity >= availableStock}
-                          >
-                            <Plus size={16} />
-                          </button>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item.product.id)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          Eliminar
-                        </button>
+                {selectedProducts.map((item) => (
+                  <div
+                    key={item.barcode_id}
+                    className="flex items-center justify-between bg-gray-50 p-4 rounded-lg"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <img
+                        src={item.product.image || "https://placehold.co/64x64?text=No+Image"}
+                        alt={item.product.name}
+                        className="w-16 h-16 object-cover rounded"
+                      />
+                      <div>
+                        <h4 className="font-medium">{item.product.name}</h4>
+                        <p className="text-sm text-gray-600">
+                          Color: {item.product.color}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          Código: {item.barcode}
+                        </p>
                       </div>
                     </div>
-                  );
-                })}
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item.barcode_id)}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -620,93 +567,146 @@ export const TransferComponent: React.FC<TransferProps> = ({
       </section>
 
       {/* Historial de transferencias */}
-      <section className="bg-white rounded-lg shadow overflow-hidden hidden sm:block my-8 p-6">
-        <header className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold">Historial de Transferencias</h2>
-          <div>
-            <span>Mostrando {transferHistory.length} transferencias</span>
-            <div className="flex items-center gap-4 justify-center mt-4">
-              <button
-                disabled={offset === 0}
-                onClick={() => setOffset(offset - limitItems)}
-                className={`p-2 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors ${
-                  offset === 0
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer"
-                }`}
-              >
-                <ArrowLeftIcon size={20} />
-              </button>
-              <button
-                disabled={!hasMore}
-                onClick={() => setOffset(offset + limitItems)}
-                className={`p-2 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors ${
-                  !hasMore
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer"
-                }`}
-              >
-                <ArrowRightIcon size={20} />
-              </button>
+      <section className="bg-white rounded-lg shadow overflow-hidden my-8">
+        <div className="p-4 md:p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold">Historial de Transferencias</h2>
+            <div>
+              <span>Mostrando {transferHistory.length} transferencias</span>
+              <div className="flex items-center gap-4 justify-center mt-4">
+                <button
+                  disabled={offset === 0}
+                  onClick={() => setOffset(offset - limitItems)}
+                  className={`p-2 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors ${
+                    offset === 0
+                      ? "opacity-50 cursor-not-allowed"
+                      : "cursor-pointer"
+                  }`}
+                >
+                  <ArrowLeftIcon size={20} />
+                </button>
+                <button
+                  disabled={!hasMore}
+                  onClick={() => setOffset(offset + limitItems)}
+                  className={`p-2 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors ${
+                    !hasMore
+                      ? "opacity-50 cursor-not-allowed"
+                      : "cursor-pointer"
+                  }`}
+                >
+                  <ArrowRightIcon size={20} />
+                </button>
+              </div>
             </div>
           </div>
-        </header>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fecha
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Productos
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Desde Tienda
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Hacia Tienda
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Empleado
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {transferHistory.map((transfer) => (
-                <tr key={transfer.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {format(new Date(transfer.transfer_date), "dd/MM/yyyy HH:mm")}
-                  </td>
-                  <td className="px-6 py-4">
-                    <ul className="list-disc pl-4">
-                      {transfer.items.map((item, index) => (
-                        <li key={index}>
-                          {item.product_name} (x{item.quantity})
-                        </li>
-                      ))}
-                    </ul>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {transfer.from_store_name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {transfer.to_store_name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {transfer.employee_name}
-                  </td>
-                </tr>
-              ))}
-              {transferHistory.length === 0 && (
+          
+          {/* Vista de tabla para escritorio */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
                 <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                    No hay transferencias registradas
-                  </td>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fecha
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Productos
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Desde Tienda
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Hacia Tienda
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Empleado
+                  </th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {transferHistory.map((transfer) => (
+                  <tr key={transfer.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {format(new Date(transfer.transfer_date), "dd/MM/yyyy HH:mm")}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="space-y-1">
+                        {transfer.items.map((item, index) => (
+                          <div key={index} className="text-sm">
+                            <div className="font-medium">{item.product_name}</div>
+                            <div className="text-xs text-gray-500">Código: {item.barcode}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {transfer.from_store_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {transfer.to_store_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {transfer.employee_name}
+                    </td>
+                  </tr>
+                ))}
+                {transferHistory.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                      No hay transferencias registradas
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Vista de tarjetas para móvil */}
+          <div className="md:hidden space-y-4">
+            {transferHistory.map((transfer) => (
+              <div key={transfer.id} className="bg-gray-50 rounded-lg p-4">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="text-sm font-medium">
+                    {format(new Date(transfer.transfer_date), "dd/MM/yyyy HH:mm")}
+                  </div>
+                </div>
+                
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="text-gray-600">Productos:</span>
+                    <div className="mt-1 space-y-1">
+                      {transfer.items.map((item, index) => (
+                        <div key={index} className="bg-white p-2 rounded text-xs">
+                          <div className="font-medium">{item.product_name}</div>
+                          <div className="text-gray-500">Código: {item.barcode}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Desde:</span>
+                    <span>{transfer.from_store_name}</span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Hacia:</span>
+                    <span>{transfer.to_store_name}</span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Empleado:</span>
+                    <span>{transfer.employee_name}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            {transferHistory.length === 0 && (
+              <div className="text-center text-gray-500 py-8">
+                No hay transferencias registradas
+              </div>
+            )}
+          </div>
         </div>
       </section>
     </>

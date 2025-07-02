@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import { format } from "date-fns";
 import { supabase } from "../lib/supabase";
-import { Printer, Edit, ArrowLeftIcon, ArrowRightIcon, Save, X } from "lucide-react";
+import { Printer, Edit, ArrowLeftIcon, ArrowRightIcon, Save, X, Plus, Minus } from "lucide-react";
 
 interface SalesProps {
   exchangeRate: number;
@@ -18,6 +18,8 @@ interface SaleHistoryItem {
   store_name: string;
   products: {
     product_name: string;
+    barcode: string;
+    mei_codes: string[];
   }[];
 }
 
@@ -35,6 +37,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const [isScannerInput, setIsScannerInput] = useState(false);
   const [stores, setStores] = useState<any[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
+  const [meiCodes, setMeiCodes] = useState<Record<string, string[]>>({});
+  const [showMeiInput, setShowMeiInput] = useState<Record<string, boolean>>({});
   
   // Pagination states
   const [offset, setOffset] = useState(0);
@@ -172,7 +176,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   // Calcular total automáticamente
   const calculateTotal = (products: any[]) => {
     const total = products.reduce(
-      (total, item) => total + calculateFinalPrice(item.cost_price, item.profit_bob) * item.quantity,
+      (total, item) => total + calculateFinalPrice(item.cost_price, item.profit_bob),
       0
     );
     setTotalSale(total);
@@ -186,11 +190,17 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       return;
     }
 
-    const updatedProducts = [...selectedProducts, { ...product, quantity: 1 }];
+    const updatedProducts = [...selectedProducts, product];
     setSelectedProducts(updatedProducts);
     calculateTotal(updatedProducts);
     setSearchTerm("");
     setIsScannerInput(false);
+    
+    // Inicializar MEI codes para este producto
+    setMeiCodes(prev => ({
+      ...prev,
+      [product.barcode_id]: []
+    }));
   };
 
   // Eliminar producto de la venta
@@ -198,11 +208,41 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     const updatedProducts = selectedProducts.filter((item) => item.barcode_id !== barcodeId);
     setSelectedProducts(updatedProducts);
     calculateTotal(updatedProducts);
+    
+    // Limpiar MEI codes
+    setMeiCodes(prev => {
+      const newMeiCodes = { ...prev };
+      delete newMeiCodes[barcodeId];
+      return newMeiCodes;
+    });
+    setShowMeiInput(prev => {
+      const newShowMei = { ...prev };
+      delete newShowMei[barcodeId];
+      return newShowMei;
+    });
   };
 
   // Manejar cambio manual del total
   const handleTotalChange = (newTotal: number) => {
     setTotalSale(newTotal);
+  };
+
+  // Agregar código MEI
+  const addMeiCode = (barcodeId: string, meiCode: string) => {
+    if (!meiCode.trim()) return;
+    
+    setMeiCodes(prev => ({
+      ...prev,
+      [barcodeId]: [...(prev[barcodeId] || []), meiCode.trim()]
+    }));
+  };
+
+  // Eliminar código MEI
+  const removeMeiCode = (barcodeId: string, index: number) => {
+    setMeiCodes(prev => ({
+      ...prev,
+      [barcodeId]: prev[barcodeId].filter((_, i) => i !== index)
+    }));
   };
 
   // Manejar envío de venta
@@ -228,6 +268,17 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       });
     }
 
+    // Verificar que todos los productos tengan al menos un código MEI
+    for (const product of selectedProducts) {
+      const productMeiCodes = meiCodes[product.barcode_id] || [];
+      if (productMeiCodes.length === 0) {
+        return toast.error(`Debe agregar al menos un código MEI para ${product.name}`, {
+          duration: 3000,
+          position: "top-right",
+        });
+      }
+    }
+
     try {
       // Crear la venta
       const saleId = crypto.randomUUID();
@@ -249,13 +300,15 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
 
       // Crear los productos vendidos y marcar códigos como vendidos
       for (const product of selectedProducts) {
-        // Insertar en sale_product
+        // Insertar en sale_product con MEI codes
         const { error: saleProductError } = await supabase
           .from("sale_product")
           .insert([
             {
               sale_id: saleId,
               product_id: product.id,
+              barcode_id: product.barcode_id,
+              mei_codes: meiCodes[product.barcode_id] || [],
             },
           ]);
 
@@ -277,6 +330,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       setSelectedProducts([]);
       setTotalSale(0);
       setPaymentType("efectivo");
+      setMeiCodes({});
+      setShowMeiInput({});
 
       // Recargar datos
       await fetchAvailableProducts();
@@ -340,11 +395,14 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       if (salesData) {
         const enrichedSales = await Promise.all(
           salesData.map(async (sale: any) => {
-            // Obtener productos vendidos
+            // Obtener productos vendidos con códigos de barras y MEI
             const { data: saleProducts } = await supabase
               .from("sale_product")
               .select(`
-                products!product_id (name)
+                barcode_id,
+                mei_codes,
+                products!product_id (name),
+                product_barcodes_store!barcode_id (barcode)
               `)
               .eq("sale_id", sale.id);
 
@@ -360,6 +418,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               store_name: sale.stores?.name || "Tienda no encontrada",
               products: saleProducts?.map((sp: any) => ({
                 product_name: sp.products?.name || "Producto no encontrado",
+                barcode: sp.product_barcodes_store?.barcode || "N/A",
+                mei_codes: sp.mei_codes || [],
               })) || [],
             };
           })
@@ -402,6 +462,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               .products th, .products td { border: 1px solid #ddd; padding: 8px; text-align: left; }
               .products th { background-color: #f2f2f2; }
               .total { text-align: right; font-weight: bold; margin-top: 20px; }
+              .mei-codes { font-size: 0.9em; color: #666; }
             </style>
           </head>
           <body>
@@ -419,12 +480,16 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               <thead>
                 <tr>
                   <th>Producto</th>
+                  <th>Código de Barras</th>
+                  <th>Códigos MEI</th>
                 </tr>
               </thead>
               <tbody>
                 ${sale.products.map(product => `
                   <tr>
                     <td>${product.product_name}</td>
+                    <td>${product.barcode}</td>
+                    <td class="mei-codes">${product.mei_codes.join(', ')}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -450,6 +515,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     setEditFormData({
       type_of_payment: sale.type_of_payment,
       total_sale: sale.total_sale,
+      products: sale.products,
     });
   };
 
@@ -463,6 +529,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         .update({
           type_of_payment: editFormData.type_of_payment,
           total_sale: editFormData.total_sale,
+          quantity_products: editFormData.products.length,
         })
         .eq("id", editingSale);
 
@@ -482,6 +549,51 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const cancelEdit = () => {
     setEditingSale(null);
     setEditFormData({});
+  };
+
+  // Eliminar producto de venta (solo admin)
+  const removeProductFromSale = async (saleId: string, productIndex: number) => {
+    if (currentEmployee?.position !== 'administrador') {
+      toast.error("Solo los administradores pueden modificar ventas");
+      return;
+    }
+
+    try {
+      // Obtener el producto a eliminar
+      const { data: saleProducts } = await supabase
+        .from("sale_product")
+        .select("id, barcode_id")
+        .eq("sale_id", saleId);
+
+      if (saleProducts && saleProducts[productIndex]) {
+        const productToRemove = saleProducts[productIndex];
+
+        // Eliminar el producto de la venta
+        const { error: deleteError } = await supabase
+          .from("sale_product")
+          .delete()
+          .eq("id", productToRemove.id);
+
+        if (deleteError) throw deleteError;
+
+        // Marcar el código de barras como no vendido
+        const { error: updateError } = await supabase
+          .from("product_barcodes_store")
+          .update({
+            is_sold: false,
+            sold_at: null,
+          })
+          .eq("id", productToRemove.barcode_id);
+
+        if (updateError) throw updateError;
+
+        toast.success("Producto eliminado de la venta");
+        await fetchSalesHistory();
+      }
+    } catch (error) {
+      console.error("Error removing product from sale:", error);
+      toast.error("Error al eliminar producto de la venta");
+    }
   };
 
   if (loading) {
@@ -575,6 +687,9 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                       <p className="text-sm text-blue-600 font-medium">
                         {calculateFinalPrice(product.cost_price, product.profit_bob)} Bs.
                       </p>
+                      <p className="text-xs text-gray-500">
+                        Código: {product.barcode}
+                      </p>
                     </div>
                   </button>
                 ))}
@@ -606,31 +721,104 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                 {selectedProducts.map((product) => (
                   <div
                     key={product.barcode_id}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-gray-50 p-4 rounded-lg space-y-4 sm:space-y-0"
+                    className="bg-gray-50 p-4 rounded-lg space-y-4"
                   >
-                    <div className="flex items-center space-x-4">
-                      <img
-                        src={product.image || "https://placehold.co/64x64?text=No+Image"}
-                        alt={product.name}
-                        className="w-16 h-16 object-cover rounded"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium truncate">{product.name}</h4>
-                        <p className="text-sm text-gray-600 truncate">
-                          Color: {product.color}
-                        </p>
-                        <p className="text-sm font-medium text-blue-600">
-                          Precio: {calculateFinalPrice(product.cost_price, product.profit_bob)} Bs.
-                        </p>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                      <div className="flex items-center space-x-4">
+                        <img
+                          src={product.image || "https://placehold.co/64x64?text=No+Image"}
+                          alt={product.name}
+                          className="w-16 h-16 object-cover rounded"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium truncate">{product.name}</h4>
+                          <p className="text-sm text-gray-600 truncate">
+                            Color: {product.color}
+                          </p>
+                          <p className="text-sm font-medium text-blue-600">
+                            Precio: {calculateFinalPrice(product.cost_price, product.profit_bob)} Bs.
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Código: {product.barcode}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() => removeProductFromSale(product.barcode_id)}
+                          className="text-red-600 hover:text-red-800 text-sm"
+                        >
+                          Eliminar
+                        </button>
                       </div>
                     </div>
-                    <div className="flex justify-end">
-                      <button
-                        onClick={() => removeProductFromSale(product.barcode_id)}
-                        className="text-red-600 hover:text-red-800 text-sm"
-                      >
-                        Eliminar
-                      </button>
+
+                    {/* Códigos MEI */}
+                    <div className="border-t pt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h5 className="text-sm font-medium text-gray-700">
+                          Códigos MEI ({(meiCodes[product.barcode_id] || []).length})
+                        </h5>
+                        <button
+                          onClick={() => setShowMeiInput(prev => ({
+                            ...prev,
+                            [product.barcode_id]: !prev[product.barcode_id]
+                          }))}
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                        >
+                          {showMeiInput[product.barcode_id] ? 'Ocultar' : 'Agregar MEI'}
+                        </button>
+                      </div>
+
+                      {/* Lista de códigos MEI */}
+                      <div className="space-y-1 mb-2">
+                        {(meiCodes[product.barcode_id] || []).map((mei, index) => (
+                          <div key={index} className="flex items-center justify-between bg-white px-2 py-1 rounded text-sm">
+                            <span className="font-mono">{mei}</span>
+                            <button
+                              onClick={() => removeMeiCode(product.barcode_id, index)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              <Minus size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Input para nuevo código MEI */}
+                      {showMeiInput[product.barcode_id] && (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Ingrese código MEI"
+                            className="flex-1 text-sm px-2 py-1 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const input = e.target as HTMLInputElement;
+                                addMeiCode(product.barcode_id, input.value);
+                                input.value = '';
+                              }
+                            }}
+                          />
+                          <button
+                            onClick={(e) => {
+                              const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                              addMeiCode(product.barcode_id, input.value);
+                              input.value = '';
+                            }}
+                            className="px-2 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                      )}
+
+                      {(meiCodes[product.barcode_id] || []).length === 0 && (
+                        <p className="text-xs text-red-500 italic">
+                          ⚠️ Debe agregar al menos un código MEI
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -710,10 +898,10 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                     Fecha
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tipo de Pago
+                    Productos
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cantidad
+                    Tipo de Pago
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Total
@@ -735,6 +923,39 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {format(new Date(sale.sale_date), "dd/MM/yyyy HH:mm")}
                     </td>
+                    <td className="px-6 py-4 text-sm">
+                      {editingSale === sale.id ? (
+                        <div className="space-y-2">
+                          {editFormData.products.map((product: any, index: number) => (
+                            <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                              <div>
+                                <div className="font-medium">{product.product_name}</div>
+                                <div className="text-xs text-gray-500">Código: {product.barcode}</div>
+                                <div className="text-xs text-gray-500">MEI: {product.mei_codes.join(', ')}</div>
+                              </div>
+                              {currentEmployee?.position === 'administrador' && (
+                                <button
+                                  onClick={() => removeProductFromSale(sale.id, index)}
+                                  className="text-red-600 hover:text-red-800 text-xs"
+                                >
+                                  Eliminar
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          {sale.products.map((product, index) => (
+                            <div key={index} className="text-sm">
+                              <div className="font-medium">{product.product_name}</div>
+                              <div className="text-xs text-gray-500">Código: {product.barcode}</div>
+                              <div className="text-xs text-gray-500">MEI: {product.mei_codes.join(', ')}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {editingSale === sale.id ? (
                         <select
@@ -749,9 +970,6 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                       ) : (
                         <span className="capitalize">{sale.type_of_payment}</span>
                       )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {sale.quantity_products} productos
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {editingSale === sale.id ? (
@@ -874,7 +1092,20 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                   </div>
                 </div>
                 
-                <div className="space-y-1 text-sm">
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="text-gray-600">Productos:</span>
+                    <div className="mt-1 space-y-1">
+                      {sale.products.map((product, index) => (
+                        <div key={index} className="bg-white p-2 rounded text-xs">
+                          <div className="font-medium">{product.product_name}</div>
+                          <div className="text-gray-500">Código: {product.barcode}</div>
+                          <div className="text-gray-500">MEI: {product.mei_codes.join(', ')}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
                   <div className="flex justify-between">
                     <span className="text-gray-600">Tipo de Pago:</span>
                     {editingSale === sale.id ? (
@@ -890,11 +1121,6 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                     ) : (
                       <span className="capitalize">{sale.type_of_payment}</span>
                     )}
-                  </div>
-                  
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Cantidad:</span>
-                    <span>{sale.quantity_products} productos</span>
                   </div>
                   
                   <div className="flex justify-between">

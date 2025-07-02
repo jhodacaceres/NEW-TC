@@ -1,7 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { supabase } from "../lib/supabase";
-import { Calendar } from "lucide-react";
+import { Calendar, Download } from "lucide-react";
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+
+// Extend jsPDF type to include autoTable
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 export const Movements: React.FC = () => {
   // Estados
@@ -45,8 +54,14 @@ export const Movements: React.FC = () => {
           supabase.from("products").select("*"),
           supabase.from("stores").select("*"),
           supabase.from("employees").select("*"),
-          supabase.from("sale_product").select("*"),
-          supabase.from("transfer_product").select("*")
+          supabase.from("sale_product").select(`
+            *,
+            product_barcodes_store!barcode_id (barcode)
+          `),
+          supabase.from("transfer_product").select(`
+            *,
+            product_barcodes_store!barcode_id (barcode)
+          `)
         ]);
 
         setSales(salesData || []);
@@ -151,7 +166,8 @@ export const Movements: React.FC = () => {
         items: items.map(item => ({
           productId: item.product_id,
           productName: getProductName(item.product_id),
-          quantity: 1
+          barcode: item.product_barcodes_store?.barcode || "N/A",
+          mei_codes: item.mei_codes || []
         })),
         status: "Completado",
         total: sale.total_sale
@@ -175,7 +191,7 @@ export const Movements: React.FC = () => {
         items: items.map(item => ({
           productId: item.product_id,
           productName: getProductName(item.product_id),
-          quantity: 1
+          barcode: item.product_barcodes_store?.barcode || "N/A"
         })),
         status: `De ${getStoreName(transfer.store_origin_id)} a ${getStoreName(transfer.store_destiny_id)}`
       };
@@ -227,6 +243,97 @@ export const Movements: React.FC = () => {
     // Ordenar por fecha descendente
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+  // Función para generar PDF
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    
+    // Título
+    doc.setFontSize(16);
+    doc.text('Reporte de Movimientos', 14, 22);
+    
+    // Información de filtros
+    doc.setFontSize(10);
+    let yPosition = 35;
+    
+    if (selectedType !== "all") {
+      const typeNames = {
+        sales: "Ventas",
+        transfers: "Transferencias", 
+        purchase_orders: "Órdenes de Compra"
+      };
+      doc.text(`Tipo: ${typeNames[selectedType]}`, 14, yPosition);
+      yPosition += 7;
+    }
+    
+    if (selectedStore) {
+      doc.text(`Tienda: ${getStoreName(selectedStore)}`, 14, yPosition);
+      yPosition += 7;
+    }
+    
+    if (startDate || endDate) {
+      const dateRange = `Fechas: ${startDate || 'Inicio'} - ${endDate || 'Fin'}`;
+      doc.text(dateRange, 14, yPosition);
+      yPosition += 7;
+    }
+    
+    doc.text(`Generado: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, yPosition);
+    yPosition += 10;
+
+    // Preparar datos para la tabla
+    const tableData = filteredMovements.map(movement => {
+      const typeNames = {
+        sales: "Venta",
+        transfers: "Transferencia",
+        purchase_orders: "Orden de Compra"
+      };
+      
+      let details = "";
+      if (movement.type === "sales") {
+        details = `Total: ${movement.total} Bs. - Tienda: ${movement.store}`;
+      } else if (movement.type === "transfers") {
+        details = `${movement.fromStore} → ${movement.toStore}`;
+      } else {
+        details = `Estado: ${movement.status} - Total: ${movement.total}`;
+      }
+      
+      // Códigos de barras
+      const barcodes = movement.items
+        .map(item => item.barcode)
+        .filter(barcode => barcode !== "N/A")
+        .join(", ");
+      
+      return [
+        formatDate(movement.date),
+        typeNames[movement.type],
+        movement.items.map(item => item.productName).join(", "),
+        barcodes || "N/A",
+        details,
+        movement.employee
+      ];
+    });
+
+    // Crear tabla
+    doc.autoTable({
+      head: [['Fecha', 'Tipo', 'Productos', 'Códigos de Barras', 'Detalles', 'Empleado']],
+      body: tableData,
+      startY: yPosition,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [66, 139, 202] },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 20 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 30 },
+        4: { cellWidth: 40 },
+        5: { cellWidth: 30 }
+      }
+    });
+
+    // Guardar PDF
+    const fileName = `movimientos_${format(new Date(), "yyyy-MM-dd_HH-mm")}.pdf`;
+    doc.save(fileName);
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center h-64">Cargando...</div>;
   }
@@ -235,7 +342,16 @@ export const Movements: React.FC = () => {
     <div className="space-y-6">
       {/* Filtros */}
       <div className="bg-white rounded-lg shadow p-4 md:p-6">
-        <h3 className="text-lg font-medium mb-4">Filtros</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-medium">Filtros</h3>
+          <button
+            onClick={generatePDF}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700 transition-colors"
+          >
+            <Download size={16} />
+            Descargar PDF
+          </button>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -340,6 +456,9 @@ export const Movements: React.FC = () => {
                     Producto Principal
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Códigos de Barras
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Detalles
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -371,6 +490,9 @@ export const Movements: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
                           {movement.items.length > 0 ? movement.items[0].productName : "Sin productos"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {movement.items.length > 0 ? movement.items[0].barcode : "N/A"}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
                           {movement.type === "sales" && (
@@ -406,16 +528,25 @@ export const Movements: React.FC = () => {
                       </tr>
                       {expandedRows[movement.id] && (
                         <tr>
-                          <td colSpan={6} className="px-6 py-4 bg-gray-50">
+                          <td colSpan={7} className="px-6 py-4 bg-gray-50">
                             <div className="ml-8">
-                              <h4 className="font-medium mb-2">Productos:</h4>
-                              <ul className="list-disc pl-5 space-y-1">
+                              <h4 className="font-medium mb-2">Todos los productos:</h4>
+                              <div className="space-y-2">
                                 {movement.items.map((item: any, idx: number) => (
-                                  <li key={idx}>
-                                    {item.productName} - Cantidad: {item.quantity}
-                                  </li>
+                                  <div key={idx} className="bg-white p-3 rounded border">
+                                    <div className="font-medium">{item.productName}</div>
+                                    <div className="text-sm text-gray-600">Código de barras: {item.barcode}</div>
+                                    {item.mei_codes && item.mei_codes.length > 0 && (
+                                      <div className="text-sm text-gray-600">
+                                        Códigos MEI: {item.mei_codes.join(", ")}
+                                      </div>
+                                    )}
+                                    {item.quantity && (
+                                      <div className="text-sm text-gray-600">Cantidad: {item.quantity}</div>
+                                    )}
+                                  </div>
                                 ))}
-                              </ul>
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -424,7 +555,7 @@ export const Movements: React.FC = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
                       No hay movimientos que coincidan con los filtros seleccionados
                     </td>
                   </tr>
@@ -463,6 +594,10 @@ export const Movements: React.FC = () => {
                     
                     <div>
                       <span className="text-gray-600">Producto principal:</span> {movement.items.length > 0 ? movement.items[0].productName : "Sin productos"}
+                    </div>
+                    
+                    <div>
+                      <span className="text-gray-600">Código de barras:</span> {movement.items.length > 0 ? movement.items[0].barcode : "N/A"}
                     </div>
                     
                     {movement.type === "sales" && (
@@ -506,13 +641,22 @@ export const Movements: React.FC = () => {
                   {expandedRows[movement.id] && (
                     <div className="mt-3 pt-3 border-t border-gray-200">
                       <h4 className="font-medium mb-2 text-sm">Todos los productos:</h4>
-                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                      <div className="space-y-2">
                         {movement.items.map((item: any, idx: number) => (
-                          <li key={idx}>
-                            {item.productName} - Cantidad: {item.quantity}
-                          </li>
+                          <div key={idx} className="bg-white p-2 rounded border text-xs">
+                            <div className="font-medium">{item.productName}</div>
+                            <div className="text-gray-600">Código de barras: {item.barcode}</div>
+                            {item.mei_codes && item.mei_codes.length > 0 && (
+                              <div className="text-gray-600">
+                                Códigos MEI: {item.mei_codes.join(", ")}
+                              </div>
+                            )}
+                            {item.quantity && (
+                              <div className="text-gray-600">Cantidad: {item.quantity}</div>
+                            )}
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     </div>
                   )}
                 </div>
