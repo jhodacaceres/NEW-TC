@@ -803,9 +803,11 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                           />
                           <button
                             onClick={(e) => {
-                              const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
-                              addMeiCode(product.barcode_id, input.value);
-                              input.value = '';
+                              const input = (e.currentTarget as HTMLElement).previousElementSibling as HTMLInputElement;
+                              if (input) {
+                                addMeiCode(product.barcode_id, input.value);
+                                input.value = '';
+                              }
                             }}
                             className="px-2 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
                           >
