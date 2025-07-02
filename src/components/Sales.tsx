@@ -31,6 +31,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
   const [editingSale, setEditingSale] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<any>({});
+  const [isScannerInput, setIsScannerInput] = useState(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -64,9 +65,15 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     fetchData();
   }, []);
 
-  // Obtener productos disponibles
+  // Obtener productos disponibles solo de la tienda del empleado
   const fetchAvailableProducts = async () => {
     try {
+      const employeeData = localStorage.getItem('currentEmployee');
+      if (!employeeData) return;
+
+      const employee = JSON.parse(employeeData);
+      if (!employee.store_id) return;
+
       const { data, error } = await supabase
         .from("product_barcodes_store")
         .select(`
@@ -83,6 +90,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
             profit_bob
           )
         `)
+        .eq("store_id", employee.store_id)
         .eq("is_sold", false);
 
       if (error) throw error;
@@ -118,7 +126,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     return Math.round(costPrice * exchangeRate + profitBob);
   };
 
-  // Calcular total
+  // Calcular total automáticamente
   const calculateTotal = (products: any[]) => {
     const total = products.reduce(
       (total, item) => total + calculateFinalPrice(item.cost_price, item.profit_bob) * item.quantity,
@@ -139,6 +147,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     setSelectedProducts(updatedProducts);
     calculateTotal(updatedProducts);
     setSearchTerm("");
+    setIsScannerInput(false);
   };
 
   // Eliminar producto de la venta
@@ -146,6 +155,11 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     const updatedProducts = selectedProducts.filter((item) => item.barcode_id !== barcodeId);
     setSelectedProducts(updatedProducts);
     calculateTotal(updatedProducts);
+  };
+
+  // Manejar cambio manual del total
+  const handleTotalChange = (newTotal: number) => {
+    setTotalSale(newTotal);
   };
 
   // Manejar envío de venta
@@ -231,10 +245,15 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     }
   };
 
-  // Obtener historial de ventas (últimas 5)
+  // Obtener historial de ventas (filtrado por tienda del empleado)
   const fetchSalesHistory = async () => {
     try {
-      const { data: salesData, error: salesError } = await supabase
+      const employeeData = localStorage.getItem('currentEmployee');
+      if (!employeeData) return;
+
+      const employee = JSON.parse(employeeData);
+      
+      let query = supabase
         .from("sales")
         .select(`
           id,
@@ -246,6 +265,13 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         `)
         .order("sale_date", { ascending: false })
         .limit(5);
+
+      // Si no es administrador, filtrar por tienda
+      if (employee.position !== 'administrador') {
+        query = query.eq('store_id', employee.store_id);
+      }
+
+      const { data: salesData, error: salesError } = await query;
 
       if (salesError) throw salesError;
 
@@ -291,6 +317,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         duration: 3000,
         position: "top-right",
       });
+      setIsScannerInput(true);
     }
   };
 
@@ -347,8 +374,12 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     }
   };
 
-  // Iniciar edición de venta
+  // Iniciar edición de venta (solo administradores)
   const startEditSale = (sale: SaleHistoryItem) => {
+    if (currentEmployee?.position !== 'administrador') {
+      toast.error("Solo los administradores pueden editar ventas");
+      return;
+    }
     setEditingSale(sale.id);
     setEditFormData({
       type_of_payment: sale.type_of_payment,
@@ -432,9 +463,9 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               <button
                 type="button"
                 onClick={handleScanner}
-                className="px-3 py-2 text-sm bg-blue-100 text-blue-600 rounded hover:bg-blue-200 whitespace-nowrap"
+                className="px-3 py-1 text-sm bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
               >
-                Buscar
+                Escanear Código
               </button>
             </div>
 
@@ -521,14 +552,21 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                 ))}
               </div>
 
-              {/* Total */}
+              {/* Total editable */}
               <div className="mt-6 bg-gray-50 p-4 rounded-lg">
-                <div className="flex justify-between items-center border-t pt-2">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-2 sm:space-y-0">
                   <span className="text-xl font-medium">Total a pagar:</span>
-                  <span className="text-xl font-bold text-blue-600">
-                    {totalSale} Bs.
-                  </span>
+                  <input
+                    type="number"
+                    value={totalSale}
+                    onChange={(e) => handleTotalChange(Number(e.target.value))}
+                    className="text-xl font-bold text-blue-600 bg-white border border-gray-300 rounded px-3 py-1 w-full sm:w-auto text-right"
+                    min="0"
+                  />
                 </div>
+                <p className="text-sm text-gray-500 mt-2">
+                  Puede modificar el total si es necesario
+                </p>
               </div>
 
               {/* Botón de venta */}
@@ -643,13 +681,15 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                           >
                             <Printer size={18} />
                           </button>
-                          <button
-                            onClick={() => startEditSale(sale)}
-                            className="text-green-600 hover:text-green-900"
-                            title="Editar"
-                          >
-                            <Edit size={18} />
-                          </button>
+                          {currentEmployee?.position === 'administrador' && (
+                            <button
+                              onClick={() => startEditSale(sale)}
+                              className="text-green-600 hover:text-green-900"
+                              title="Editar"
+                            >
+                              <Edit size={18} />
+                            </button>
+                          )}
                         </div>
                       )}
                     </td>
@@ -701,13 +741,15 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                         >
                           <Printer size={16} />
                         </button>
-                        <button
-                          onClick={() => startEditSale(sale)}
-                          className="text-green-600 hover:text-green-900"
-                          title="Editar"
-                        >
-                          <Edit size={16} />
-                        </button>
+                        {currentEmployee?.position === 'administrador' && (
+                          <button
+                            onClick={() => startEditSale(sale)}
+                            className="text-green-600 hover:text-green-900"
+                            title="Editar"
+                          >
+                            <Edit size={16} />
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
