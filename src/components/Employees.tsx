@@ -65,8 +65,7 @@ export const Employees = () => {
             password: data.password,
             position: data.position,
             phone: data.phone || null,
-            store_id: data.store_id,
-            updated_at: new Date().toISOString()
+            store_id: data.store_id
           })
           .eq('id', selectedEmployee.id);
 

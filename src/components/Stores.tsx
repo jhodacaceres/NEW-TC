@@ -44,14 +44,23 @@ export const Stores: React.FC<StoresProps> = ({ products }) => {
   const fetchStoreProductCounts = async () => {
     try {
       const { data, error } = await supabase
-        .from("store_products")
-        .select("store_id");
+        .from("product_barcodes_store")
+        .select("store_id, product_id");
 
       if (error) throw error;
 
       const counts: Record<string, number> = {};
+      const uniqueProducts: Record<string, Set<string>> = {};
+
       data?.forEach((item) => {
-        counts[item.store_id] = (counts[item.store_id] || 0) + 1;
+        if (!uniqueProducts[item.store_id]) {
+          uniqueProducts[item.store_id] = new Set();
+        }
+        uniqueProducts[item.store_id].add(item.product_id);
+      });
+
+      Object.keys(uniqueProducts).forEach((storeId) => {
+        counts[storeId] = uniqueProducts[storeId].size;
       });
 
       setStoreProductCounts(counts);
@@ -106,7 +115,7 @@ export const Stores: React.FC<StoresProps> = ({ products }) => {
         .delete()
         .in('store_product_id', 
           await supabase
-            .from('store_products')
+            .from('product_barcodes_store')
             .select('id')
             .eq('store_id', storeToDeleteId)
             .then(({ data }) => data?.map(sp => sp.id) || [])
@@ -114,7 +123,7 @@ export const Stores: React.FC<StoresProps> = ({ products }) => {
 
       // Luego eliminar asignaciones de productos
       await supabase
-        .from('store_products')
+        .from('product_barcodes_store')
         .delete()
         .eq('store_id', storeToDeleteId);
 
