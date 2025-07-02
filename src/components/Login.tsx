@@ -34,7 +34,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         username: employee.username,
         first_name: employee.first_name,
         last_name: employee.last_name,
-        position: employee.position
+        position: employee.position,
+        store_id: employee.store_id
       }));
 
       onLogin(employee);
