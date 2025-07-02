@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import { format } from "date-fns";
 import { supabase } from "../lib/supabase";
-import { Printer, Edit } from "lucide-react";
+import { Printer, Edit, ArrowLeftIcon, ArrowRightIcon, Save, X } from "lucide-react";
 
 interface SalesProps {
   exchangeRate: number;
@@ -15,6 +15,7 @@ interface SaleHistoryItem {
   type_of_payment: string;
   quantity_products: number;
   employee_name: string;
+  store_name: string;
   products: {
     product_name: string;
   }[];
@@ -32,6 +33,13 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const [editingSale, setEditingSale] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<any>({});
   const [isScannerInput, setIsScannerInput] = useState(false);
+  const [stores, setStores] = useState<any[]>([]);
+  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
+  
+  // Pagination states
+  const [offset, setOffset] = useState(0);
+  const [limitItems] = useState(5);
+  const [hasMore, setHasMore] = useState(true);
 
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -46,9 +54,16 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         if (employeeData) {
           const employee = JSON.parse(employeeData);
           setCurrentEmployee(employee);
+          
+          // Si es admin, cargar todas las tiendas
+          if (employee.position === 'administrador') {
+            await fetchStores();
+          } else {
+            // Si es empleado de ventas, usar su tienda asignada
+            setSelectedStoreId(employee.store_id || '');
+          }
         }
 
-        await fetchAvailableProducts();
         await fetchSalesHistory();
 
       } catch (error) {
@@ -65,21 +80,39 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     fetchData();
   }, []);
 
-  // Obtener productos disponibles solo de la tienda del empleado
+  // Cargar productos cuando cambie la tienda seleccionada
+  useEffect(() => {
+    if (selectedStoreId) {
+      fetchAvailableProducts();
+    }
+  }, [selectedStoreId]);
+
+  // Recargar historial cuando cambie la paginación
+  useEffect(() => {
+    fetchSalesHistory();
+  }, [offset]);
+
+  // Obtener tiendas (solo para admin)
+  const fetchStores = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('stores')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setStores(data || []);
+    } catch (error) {
+      console.error('Error fetching stores:', error);
+    }
+  };
+
+  // Obtener productos disponibles de la tienda seleccionada
   const fetchAvailableProducts = async () => {
     try {
-      const employeeData = localStorage.getItem('currentEmployee');
-      if (!employeeData) {
-        console.warn("No employee data found in localStorage");
+      if (!selectedStoreId) {
+        console.warn("No store selected");
         setAvailableProducts([]);
-        return;
-      }
-
-      const employee = JSON.parse(employeeData);
-      if (!employee.store_id) {
-        console.warn("Employee store_id is missing or undefined:", employee);
-        setAvailableProducts([]);
-        toast.error("Error: El empleado no tiene una tienda asignada");
         return;
       }
 
@@ -99,7 +132,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
             profit_bob
           )
         `)
-        .eq("store_id", employee.store_id)
+        .eq("store_id", selectedStoreId)
         .eq("is_sold", false);
 
       if (error) throw error;
@@ -188,8 +221,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       });
     }
 
-    if (!currentEmployee.store_id) {
-      return toast.error("Error: El empleado no tiene una tienda asignada", {
+    if (!selectedStoreId) {
+      return toast.error("Error: Debe seleccionar una tienda", {
         duration: 3000,
         position: "top-right",
       });
@@ -204,7 +237,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           {
             id: saleId,
             employee_id: currentEmployee.id,
-            store_id: currentEmployee.store_id,
+            store_id: selectedStoreId,
             total_sale: totalSale,
             type_of_payment: paymentType,
             quantity_products: selectedProducts.length,
@@ -262,7 +295,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     }
   };
 
-  // Obtener historial de ventas (filtrado por tienda del empleado)
+  // Obtener historial de ventas con paginación
   const fetchSalesHistory = async () => {
     try {
       const employeeData = localStorage.getItem('currentEmployee');
@@ -282,12 +315,14 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           total_sale,
           type_of_payment,
           quantity_products,
-          employees!employee_id (first_name, last_name)
+          store_id,
+          employees!employee_id (first_name, last_name),
+          stores!store_id (name)
         `)
         .order("sale_date", { ascending: false })
-        .limit(5);
+        .range(offset, offset + limitItems - 1);
 
-      // Si no es administrador, filtrar por tienda (solo si store_id existe)
+      // Si no es administrador, filtrar por tienda
       if (employee.position !== 'administrador') {
         if (!employee.store_id) {
           console.warn("Employee store_id is missing or undefined for non-admin:", employee);
@@ -322,6 +357,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               employee_name: sale.employees 
                 ? `${sale.employees.first_name} ${sale.employees.last_name || ''}`
                 : "Empleado no encontrado",
+              store_name: sale.stores?.name || "Tienda no encontrada",
               products: saleProducts?.map((sp: any) => ({
                 product_name: sp.products?.name || "Producto no encontrado",
               })) || [],
@@ -330,6 +366,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         );
 
         setSalesHistory(enrichedSales);
+        setHasMore(enrichedSales.length === limitItems);
       }
     } catch (error) {
       console.error("Error fetching sales history:", error);
@@ -376,6 +413,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               <p><strong>Tipo de Pago:</strong> ${sale.type_of_payment}</p>
               <p><strong>Cantidad de Productos:</strong> ${sale.quantity_products}</p>
               <p><strong>Vendedor:</strong> ${sale.employee_name}</p>
+              <p><strong>Tienda:</strong> ${sale.store_name}</p>
             </div>
             <table class="products">
               <thead>
@@ -462,7 +500,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         
         {/* Información del empleado */}
         <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <p className="text-sm text-gray-600">Vendedor:</p>
               <p className="font-medium">
@@ -473,6 +511,24 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               <p className="text-sm text-gray-600">Tipo de Cambio:</p>
               <p className="font-medium">{exchangeRate} Bs/USD</p>
             </div>
+            {/* Selector de tienda para admin */}
+            {currentEmployee?.position === 'administrador' && (
+              <div>
+                <p className="text-sm text-gray-600">Tienda:</p>
+                <select
+                  value={selectedStoreId}
+                  onChange={(e) => setSelectedStoreId(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                >
+                  <option value="">Seleccionar tienda</option>
+                  {stores.map((store) => (
+                    <option key={store.id} value={store.id}>
+                      {store.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
 
@@ -614,7 +670,36 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       {/* Historial de ventas */}
       <section className="bg-white rounded-lg shadow overflow-hidden my-8">
         <div className="p-4 md:p-6">
-          <h2 className="text-xl font-semibold mb-6">Últimas 5 Ventas</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold">Historial de Ventas</h2>
+            <div>
+              <span>Mostrando {salesHistory.length} Ventas</span>
+              <div className="flex items-center gap-4 justify-center mt-4">
+                <button
+                  disabled={offset === 0}
+                  onClick={() => setOffset(offset - limitItems)}
+                  className={`p-2 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors ${
+                    offset === 0
+                      ? "opacity-50 cursor-not-allowed"
+                      : "cursor-pointer"
+                  }`}
+                >
+                  <ArrowLeftIcon size={20} />
+                </button>
+                <button
+                  disabled={!hasMore}
+                  onClick={() => setOffset(offset + limitItems)}
+                  className={`p-2 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors ${
+                    !hasMore
+                      ? "opacity-50 cursor-not-allowed"
+                      : "cursor-pointer"
+                  }`}
+                >
+                  <ArrowRightIcon size={20} />
+                </button>
+              </div>
+            </div>
+          </div>
           
           {/* Vista de tabla para escritorio */}
           <div className="hidden md:block overflow-x-auto">
@@ -635,6 +720,9 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Vendedor
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tienda
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
@@ -682,6 +770,9 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {sale.employee_name}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {sale.store_name}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       {editingSale === sale.id ? (
                         <div className="flex space-x-2">
@@ -690,14 +781,14 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                             className="text-green-600 hover:text-green-900"
                             title="Guardar"
                           >
-                            ✓
+                            <Save size={18} />
                           </button>
                           <button
                             onClick={cancelEdit}
                             className="text-red-600 hover:text-red-900"
                             title="Cancelar"
                           >
-                            ✕
+                            <X size={18} />
                           </button>
                         </div>
                       ) : (
@@ -725,7 +816,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                 ))}
                 {salesHistory.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
                       No hay ventas registradas
                     </td>
                   </tr>
@@ -750,14 +841,14 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                           className="text-green-600 hover:text-green-900"
                           title="Guardar"
                         >
-                          ✓
+                          <Save size={16} />
                         </button>
                         <button
                           onClick={cancelEdit}
                           className="text-red-600 hover:text-red-900"
                           title="Cancelar"
                         >
-                          ✕
+                          <X size={16} />
                         </button>
                       </>
                     ) : (
@@ -825,6 +916,11 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Vendedor:</span>
                     <span>{sale.employee_name}</span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Tienda:</span>
+                    <span>{sale.store_name}</span>
                   </div>
                 </div>
               </div>
