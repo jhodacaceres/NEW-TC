@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -56,6 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, cur
   const handlePageChange = (pageId: string) => {
     onPageChange(pageId);
     setIsMobileMenuOpen(false);
+    localStorage.setItem('currentPage', pageId);
   };
 
   const handleLogout = async () => {
@@ -90,6 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, cur
     URL.revokeObjectURL(url);
   };
 
+  //Manual de usurio de Administrador
   const getAdminManual = () => {
     return `
 MANUAL DE USUARIO - ADMINISTRADOR
@@ -203,6 +205,7 @@ Para soporte técnico, contacte al administrador del sistema.
 `;
   };
 
+  //Manual de usurio de Ventas
   const getSalesManual = () => {
     return `
 MANUAL DE USUARIO - VENTAS
@@ -306,6 +309,13 @@ SOPORTE
 Para cualquier problema o duda, contacta al administrador del sistema.
 `;
   };
+
+  useEffect(() => {
+    const currentPage = localStorage.getItem('currentPage');
+    if (currentPage) {
+      onPageChange(currentPage);
+    }
+  }, []);
 
   return (
     <>
