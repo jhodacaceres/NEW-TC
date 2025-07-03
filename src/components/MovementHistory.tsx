@@ -1,6 +1,8 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { ProductMovement, Product, Store, Employee } from '../types';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 interface MovementHistoryProps {
   movements: ProductMovement[];
