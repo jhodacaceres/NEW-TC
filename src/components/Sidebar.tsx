@@ -1,8 +1,8 @@
-import React, { useEffect } from 'react';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Package, 
+import React, { useEffect } from "react";
+import {
+  LayoutDashboard,
+  Users,
+  Package,
   DollarSign,
   Truck,
   Menu,
@@ -16,9 +16,11 @@ import {
   LogOut,
   BookOpen,
   ChevronDown,
-  ChevronUp
-} from 'lucide-react';
-import { supabase } from '../lib/supabase';
+  ChevronUp,
+} from "lucide-react";
+import { supabase } from "../lib/supabase";
+import ManualAdmin from "./ManualAdmin";
+import ManualSeller from "./ManualSeller";
 
 interface SidebarProps {
   currentPage: string;
@@ -26,28 +28,83 @@ interface SidebarProps {
   currentEmployee: any;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, currentEmployee }) => {
+type role = "admin" | "ventas";
+
+export const Sidebar: React.FC<SidebarProps> = ({
+  currentPage,
+  onPageChange,
+  currentEmployee,
+}) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isConfigOpen, setIsConfigOpen] = React.useState(false);
-
+  const [isAdmin, setIsAdmin] = React.useState<boolean>(false);
+  const [isManualOpen, setIsManualOpen] = React.useState<boolean>(false);
   // Definir elementos del menú basados en el rol del empleado
   const getMenuItems = () => {
     const baseItems = [
-      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['administrador', 'ventas'] },
-      { id: 'sales', label: 'Ventas', icon: ShoppingCart, roles: ['administrador', 'ventas'], readonly: currentEmployee?.position === 'ventas' },
-      { id: 'transfers', label: 'Transferencias', icon: ArrowRightLeft, roles: ['administrador', 'ventas'], readonly: currentEmployee?.position === 'ventas' },
-      { id: 'products', label: 'Productos', icon: Package, roles: ['administrador', 'ventas'], readonly: currentEmployee?.position === 'ventas' },
-      { id: 'movements', label: 'Movimientos', icon: History, roles: ['administrador'] },
-      { id: 'stores', label: 'Tiendas', icon: Store, roles: ['administrador'] },
-      { id: 'purchase-orders', label: 'Órdenes de Compra', icon: ClipboardList, roles: ['administrador'] },
-      { id: 'employees', label: 'Empleados', icon: Users, roles: ['administrador'] },
-      { id: 'suppliers', label: 'Proveedores', icon: Truck, roles: ['administrador'] },
-      { id: 'exchange', label: 'Tipo de Cambio', icon: DollarSign, roles: ['administrador'] },
+      {
+        id: "dashboard",
+        label: "Dashboard",
+        icon: LayoutDashboard,
+        roles: ["administrador", "ventas"],
+      },
+      {
+        id: "sales",
+        label: "Ventas",
+        icon: ShoppingCart,
+        roles: ["administrador", "ventas"],
+        readonly: currentEmployee?.position === "ventas",
+      },
+      {
+        id: "transfers",
+        label: "Transferencias",
+        icon: ArrowRightLeft,
+        roles: ["administrador", "ventas"],
+        readonly: currentEmployee?.position === "ventas",
+      },
+      {
+        id: "products",
+        label: "Productos",
+        icon: Package,
+        roles: ["administrador", "ventas"],
+        readonly: currentEmployee?.position === "ventas",
+      },
+      {
+        id: "movements",
+        label: "Movimientos",
+        icon: History,
+        roles: ["administrador"],
+      },
+      { id: "stores", label: "Tiendas", icon: Store, roles: ["administrador"] },
+      {
+        id: "purchase-orders",
+        label: "Órdenes de Compra",
+        icon: ClipboardList,
+        roles: ["administrador"],
+      },
+      {
+        id: "employees",
+        label: "Empleados",
+        icon: Users,
+        roles: ["administrador"],
+      },
+      {
+        id: "suppliers",
+        label: "Proveedores",
+        icon: Truck,
+        roles: ["administrador"],
+      },
+      {
+        id: "exchange",
+        label: "Tipo de Cambio",
+        icon: DollarSign,
+        roles: ["administrador"],
+      },
     ];
 
     // Filtrar elementos basados en el rol del empleado
-    return baseItems.filter(item => 
-      item.roles.includes(currentEmployee?.position || 'ventas')
+    return baseItems.filter((item) =>
+      item.roles.includes(currentEmployee?.position || "ventas")
     );
   };
 
@@ -56,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, cur
   const handlePageChange = (pageId: string) => {
     onPageChange(pageId);
     setIsMobileMenuOpen(false);
-    localStorage.setItem('currentPage', pageId);
+    localStorage.setItem("currentPage", pageId);
   };
 
   const handleLogout = async () => {
@@ -64,256 +121,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, cur
       // Cerrar sesión en Supabase Auth si existe
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.warn('Warning: Could not sign out from auth:', error);
+        console.warn("Warning: Could not sign out from auth:", error);
       }
     } catch (error) {
-      console.warn('Warning: Error during auth sign out:', error);
+      console.warn("Warning: Error during auth sign out:", error);
     }
-    
+
     // Limpiar localStorage y recargar
-    localStorage.removeItem('currentEmployee');
+    localStorage.removeItem("currentEmployee");
     window.location.reload();
   };
 
-  const handleManualDownload = (type: 'admin' | 'ventas') => {
-    // Crear contenido del manual según el tipo de empleado
-    const manualContent = type === 'admin' ? getAdminManual() : getSalesManual();
-    
-    // Crear y descargar el archivo
-    const blob = new Blob([manualContent], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Manual_${type === 'admin' ? 'Administrador' : 'Ventas'}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  //Manual de usurio de Administrador
-  const getAdminManual = () => {
-    return `
-MANUAL DE USUARIO - ADMINISTRADOR
-Sistema de Gestión Empresarial Axcel
-=====================================
-
-ÍNDICE
-------
-1. Introducción
-2. Dashboard
-3. Gestión de Ventas
-4. Transferencias
-5. Movimientos
-6. Gestión de Tiendas
-7. Órdenes de Compra
-8. Gestión de Empleados
-9. Gestión de Productos
-10. Gestión de Proveedores
-11. Tipo de Cambio
-12. Configuración
-
-1. INTRODUCCIÓN
----------------
-Como administrador, tienes acceso completo a todas las funcionalidades del sistema.
-Puedes gestionar empleados, productos, tiendas, ventas y configuraciones generales.
-
-2. DASHBOARD
-------------
-- Visualiza métricas clave del negocio
-- Gráficos de ventas mensuales vs ingresos
-- Productos más vendidos
-- Resumen financiero anual
-- Indicadores de rendimiento
-
-3. GESTIÓN DE VENTAS
---------------------
-- Registrar nuevas ventas por código de barras
-- Ver historial completo de ventas
-- Imprimir facturas
-- Editar ventas registradas
-- Filtrar por fechas y empleados
-
-4. TRANSFERENCIAS
------------------
-- Crear transferencias entre tiendas
-- Seleccionar productos y cantidades
-- Asignar empleado responsable
-- Ver historial de transferencias
-- Seguimiento de movimientos
-
-5. MOVIMIENTOS
---------------
-- Visualizar todos los movimientos del sistema
-- Filtrar por tipo: ventas, transferencias, órdenes
-- Filtrar por tienda y fecha
-- Detalles expandidos de cada movimiento
-
-6. GESTIÓN DE TIENDAS
----------------------
-- Crear nuevas tiendas
-- Editar información de tiendas existentes
-- Asignar productos a tiendas
-- Gestionar códigos de barras por tienda
-- Ver inventario por tienda
-
-7. ÓRDENES DE COMPRA
---------------------
-- Crear órdenes de compra a proveedores
-- Gestionar estados: pendiente, aprobada, rechazada
-- Registrar pagos parciales o totales
-- Seguimiento de balances pendientes
-
-8. GESTIÓN DE EMPLEADOS
------------------------
-- Crear nuevos empleados
-- Asignar roles: administrador o ventas
-- Gestionar credenciales de acceso
-- Editar información personal
-- Activar/desactivar empleados
-
-9. GESTIÓN DE PRODUCTOS
------------------------
-- Registrar nuevos productos
-- Subir imágenes de productos
-- Configurar precios en USD y ganancias en BOB
-- Gestionar especificaciones técnicas
-- Activar/desactivar productos
-
-10. GESTIÓN DE PROVEEDORES
---------------------------
-- Registrar nuevos proveedores
-- Editar información de contacto
-- Buscar proveedores
-- Gestionar relaciones comerciales
-
-11. TIPO DE CAMBIO
-------------------
-- Actualizar tipo de cambio USD a BOB
-- Ver historial de cambios
-- Impacto automático en precios de productos
-
-12. CONFIGURACIÓN
------------------
-- Cerrar sesión
-- Descargar manuales de usuario
-- Configuraciones del sistema
-
-SOPORTE TÉCNICO
----------------
-Para soporte técnico, contacte al administrador del sistema.
-`;
-  };
-
-  //Manual de usurio de Ventas
-  const getSalesManual = () => {
-    return `
-MANUAL DE USUARIO - VENTAS
-Sistema de Gestión Empresarial Axcel
-====================================
-
-ÍNDICE
-------
-1. Introducción
-2. Dashboard
-3. Proceso de Ventas
-4. Historial de Ventas
-5. Configuración
-6. Preguntas Frecuentes
-
-1. INTRODUCCIÓN
----------------
-Como empleado de ventas, tu función principal es registrar ventas utilizando
-el sistema de códigos de barras. Este manual te guiará paso a paso.
-
-2. DASHBOARD
-------------
-- Ve las métricas generales del negocio
-- Observa el rendimiento de ventas
-- Productos más vendidos
-- Información financiera básica
-
-3. PROCESO DE VENTAS
---------------------
-
-3.1 INICIAR UNA VENTA
-- Ve a la sección "Ventas"
-- Verifica que aparezca tu nombre como vendedor
-- Confirma la tienda donde estás trabajando
-
-3.2 ESCANEAR PRODUCTOS
-- Usa el campo de búsqueda para escanear códigos de barras
-- También puedes escanear códigos MEI
-- Cada código escaneado representa UN producto
-- Los productos aparecerán automáticamente en la lista
-
-3.3 INFORMACIÓN DEL CLIENTE (OPCIONAL)
-- Puedes agregar el nombre del cliente
-- Puedes agregar el teléfono del cliente
-- Esta información es opcional pero recomendada
-
-3.4 REVISAR LA VENTA
-- Verifica que todos los productos estén correctos
-- Revisa el total de la venta
-- Los precios se muestran en bolivianos (Bs.)
-- Puedes eliminar productos si es necesario
-
-3.5 COMPLETAR LA VENTA
-- Haz clic en "Registrar Venta"
-- La venta se guardará automáticamente
-- Los códigos de barras usados se marcarán como vendidos
-
-4. HISTORIAL DE VENTAS
-----------------------
-- Ve todas las ventas registradas
-- Puedes imprimir facturas haciendo clic en el ícono de impresora
-- Puedes editar ventas si es necesario
-- Filtra por fechas para encontrar ventas específicas
-
-5. CONFIGURACIÓN
-----------------
-- Cerrar sesión al finalizar tu turno
-- Descargar este manual cuando lo necesites
-
-6. PREGUNTAS FRECUENTES
------------------------
-
-P: ¿Qué hago si un código de barras no funciona?
-R: Verifica que el código esté limpio y legible. Si persiste el problema,
-   contacta al administrador.
-
-P: ¿Puedo cancelar una venta después de registrarla?
-R: Sí, puedes editar ventas desde el historial. Contacta al administrador
-   si necesitas ayuda.
-
-P: ¿Qué hago si se va la luz durante una venta?
-R: El sistema guarda automáticamente. Al regresar la luz, puedes continuar
-   donde te quedaste.
-
-P: ¿Cómo sé si un producto está disponible?
-R: Solo aparecerán en la búsqueda los productos disponibles en tu tienda.
-
-P: ¿Puedo hacer descuentos?
-R: Los precios están predefinidos. Para descuentos especiales, contacta
-   al administrador.
-
-CONSEJOS IMPORTANTES
---------------------
-- Siempre verifica el total antes de completar la venta
-- Asegúrate de escanear todos los productos del cliente
-- Mantén el escáner limpio para mejor funcionamiento
-- Cierra sesión al terminar tu turno
-
-SOPORTE
--------
-Para cualquier problema o duda, contacta al administrador del sistema.
-`;
+  const handleManualDownload = (type: role) => {
+    type === "admin" ? setIsAdmin(true) : setIsAdmin(false);
+    setIsManualOpen(true);
   };
 
   useEffect(() => {
-    const currentPage = localStorage.getItem('currentPage');
+    const currentPage = localStorage.getItem("currentPage");
     if (currentPage) {
       onPageChange(currentPage);
+      setIsManualOpen(false);
+      setIsAdmin(!isAdmin);
     }
   }, []);
 
@@ -336,30 +165,38 @@ Para cualquier problema o duda, contacta al administrador del sistema.
       )}
 
       {/* Sidebar */}
-      <div className={`
-        fixed left-0 top-0 h-full shadow-lg z-40
+      <div
+        className={`
+        fixed left-0 top-0 h-screen shadow-lg z-40
         transform transition-transform duration-300 ease-in-out
-        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+        ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
         md:translate-x-0 md:w-64 w-64
-      `} style={{ backgroundColor: '#252d42' }}>
-        <div className="p-4 border-b" style={{ borderColor: '#475569' }}>
+        flex flex-col
+      `}
+        style={{ backgroundColor: "#252d42" }}
+      >
+        <div className="p-4 border-b" style={{ borderColor: "#475569" }}>
           <h1 className="text-2xl font-bold text-white">Axcel</h1>
           {currentEmployee && (
             <div className="mt-1">
               <p className="text-sm text-gray-300">
-                {currentEmployee.first_name} {currentEmployee.last_name || ''}
+                {currentEmployee.first_name} {currentEmployee.last_name || ""}
               </p>
-              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                currentEmployee.position === 'administrador' 
-                  ? 'bg-purple-600 text-purple-100' 
-                  : 'bg-blue-600 text-blue-100'
-              }`}>
-                {currentEmployee.position === 'administrador' ? 'Administrador' : 'Ventas'}
+              <span
+                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                  currentEmployee.position === "administrador"
+                    ? "bg-purple-600 text-purple-100"
+                    : "bg-blue-600 text-blue-100"
+                }`}
+              >
+                {currentEmployee.position === "administrador"
+                  ? "Administrador"
+                  : "Ventas"}
               </span>
             </div>
           )}
         </div>
-        
+
         <nav className="flex-1 overflow-y-auto">
           <div className="mt-4">
             {menuItems.map((item) => {
@@ -370,9 +207,11 @@ Para cualquier problema o duda, contacta al administrador del sistema.
                   key={item.id}
                   onClick={() => handlePageChange(item.id)}
                   className={`w-full flex items-center space-x-3 px-6 py-3 text-left relative transition-colors
-                    ${currentPage === item.id 
-                      ? 'bg-blue-600 text-white border-r-4 border-blue-400' 
-                      : 'text-gray-300 hover:bg-gray-700'}`}
+                    ${
+                      currentPage === item.id
+                        ? "bg-blue-600 text-white border-r-4 border-blue-400"
+                        : "text-gray-300 hover:bg-gray-700"
+                    }`}
                 >
                   <Icon size={20} />
                   <span>{item.label}</span>
@@ -388,7 +227,7 @@ Para cualquier problema o duda, contacta al administrador del sistema.
         </nav>
 
         {/* Configuración en la parte inferior */}
-        <div className="border-t" style={{ borderColor: '#475569' }}>
+        <div className="border-t mt-auto" style={{ borderColor: "#475569" }}>
           <button
             onClick={() => setIsConfigOpen(!isConfigOpen)}
             className="w-full flex items-center justify-between px-6 py-3 text-gray-300 hover:bg-gray-700"
@@ -402,15 +241,24 @@ Para cualquier problema o duda, contacta al administrador del sistema.
 
           {/* Menú desplegable de configuración */}
           {isConfigOpen && (
-            <div style={{ backgroundColor: '#1e293b' }} className="border-t" style={{ borderColor: '#475569' }}>
+            <div style={{ backgroundColor: "#1e293b" }} className="border-t">
               {/* Manual de uso */}
               <button
-                onClick={() => handleManualDownload(currentEmployee?.position === 'administrador' ? 'admin' : 'ventas')}
+                onClick={() =>
+                  handleManualDownload(
+                    currentEmployee?.position === "administrador"
+                      ? "admin"
+                      : "ventas"
+                  )
+                }
                 className="w-full flex items-center space-x-3 px-8 py-3 text-gray-300 hover:bg-gray-600 text-sm"
               >
                 <BookOpen size={16} />
                 <span>
-                  Manual de {currentEmployee?.position === 'administrador' ? 'Administrador' : 'Ventas'}
+                  Manual de{" "}
+                  {currentEmployee?.position === "administrador"
+                    ? "Administrador"
+                    : "Ventas"}
                 </span>
               </button>
 
@@ -426,6 +274,44 @@ Para cualquier problema o duda, contacta al administrador del sistema.
           )}
         </div>
       </div>
+      
+      {isAdmin && isManualOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            onClick={() => setIsAdmin(false)}
+          ></div>
+          <div className="fixed w-auto lg:w-1/2 max-h-[90%] bg-gray-800 overflow-y-auto p-4 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-md shadow-lg z-50">
+            <div className="flex justify-end">
+              <X
+                onClick={() => {
+                  setIsManualOpen(false);
+                }}
+                className="text-white text-2xl cursor-pointer"
+              />
+            </div>
+            <ManualAdmin />
+          </div>
+        </>
+      )}
+
+      {!isAdmin && isManualOpen && (
+        <div className="fixed bottom-4 right-4 bg-white p-4 shadow-lg rounded-lg z-50">
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            onClick={() => setIsAdmin(false)}
+          ></div>
+          <div className="fixed w-auto lg:w-1/2 max-h-[90%] bg-gray-800 overflow-y-auto p-4 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-md shadow-lg z-50">
+            <div className="flex justify-end">
+              <X
+                onClick={() => setIsManualOpen(false)}
+                className="text-white text-2xl cursor-pointer"
+              />
+            </div>
+            <ManualSeller />
+          </div>
+        </div>
+      )}
     </>
   );
 };
