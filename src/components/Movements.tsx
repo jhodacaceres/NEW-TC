@@ -3,7 +3,8 @@ import { format } from "date-fns";
 import { supabase } from "../lib/supabase";
 import { Calendar, Download } from "lucide-react";
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
+import Logo from "../assets/LOGO.png";
 
 // Extend jsPDF type to include autoTable
 declare module "jspdf" {
@@ -31,11 +32,6 @@ export const Movements: React.FC = () => {
   const [endDate, setEndDate] = useState<string>("");
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState<boolean>(true);
-  const dateCurrent = new Date().toLocaleDateString("es-ES", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
   // Fetch data
   useEffect(() => {
     const fetchData = async () => {
@@ -249,6 +245,7 @@ export const Movements: React.FC = () => {
       };
     }),
   ];
+
   // Aplicar filtros
   const filteredMovements = allMovements
     .filter((movement) => {
@@ -277,113 +274,95 @@ export const Movements: React.FC = () => {
     // Ordenar por fecha descendente
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+  const generateDetails = (movement: any) => {
+    switch (movement.type) {
+      case "sales":
+        return `Total: ${movement.total} Bs. | Tienda: ${movement.store}`;
+      case "transfers":
+        return `${movement.fromStore} → ${movement.toStore} | ${movement.quantity} productos`;
+      case "purchase_orders":
+        return `Estado: ${movement.status} | Total: ${movement.total}`;
+      default:
+        return "";
+    }
+  };
   // Función para generar PDF
   const generatePDF = () => {
-    const doc = new jsPDF();
-
-    // Título
-    doc.setFontSize(16);
-    doc.text("Reporte de Movimientos", 14, 22);
-
-    // Información de filtros
-    doc.setFontSize(10);
-    let yPosition = 35;
-
-    if (selectedType !== "all") {
-      const typeNames = {
-        sales: "Ventas",
-        transfers: "Transferencias",
-        purchase_orders: "Órdenes de Compra",
-      };
-      doc.text(`Tipo: ${typeNames[selectedType]}`, 14, yPosition);
-      yPosition += 7;
-    }
-
-    if (selectedStore) {
-      doc.text(`Tienda: ${getStoreName(selectedStore)}`, 14, yPosition);
-      yPosition += 7;
-    }
-
-    if (startDate || endDate) {
-      const dateRange = `Fechas: ${startDate || "Inicio"} - ${
-        endDate || "Fin"
-      }`;
-      doc.text(dateRange, 14, yPosition);
-      yPosition += 7;
-    }
-
-    doc.text(
-      `Generado: ${format(new Date(), "dd/MM/yyyy HH:mm")}`,
-      14,
-      yPosition
-    );
-    yPosition += 10;
-
-    // Preparar datos para la tabla
-    const tableData = filteredMovements.map((movement) => {
-      const typeNames = {
-        sales: "Venta",
-        transfers: "Transferencia",
-        purchase_orders: "Orden de Compra",
-      };
-
-      let details = "";
-      if (movement.type === "sales") {
-        details = `Total: ${movement.total} Bs. - Tienda: ${movement.store}`;
-      } else if (movement.type === "transfers") {
-        details = `${movement.fromStore} → ${movement.toStore}`;
-      } else {
-        details = `Estado: ${movement.status} - Total: ${movement.total}`;
-      }
-
-      // Códigos de barras
-      const barcodes = movement.items
-        .map((item) => item.barcode)
-        .filter((barcode) => barcode !== "N/A")
-        .join(", ");
-
-      return [
-        formatDate(movement.date),
-        typeNames[movement.type],
-        movement.items.map((item) => item.productName).join(", "),
-        barcodes || "N/A",
-        details,
-        movement.employee,
-      ];
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
     });
 
-    // Crear tabla
-    doc.autoTable({
-      head: [
-        [
-          "Fecha",
-          "Tipo",
-          "Productos",
-          "Códigos de Barras",
-          "Detalles",
-          "Empleado",
-        ],
-      ],
-      body: tableData,
+    // 1. Configuración inicial
+    const margin = 15; // Margen en mm
+    const imageWidth = 30;
+    const imageHeight = 20;
+    let yPosition = 20; // Posición Y inicial
+
+    // 2. Posición de la imagen (superior derecha)
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const imageX = pageWidth - margin - imageWidth; // Derecha - margen - ancho imagen
+
+    // Agregar imagen en esquina superior derecha
+    doc.addImage(Logo, "PNG", imageX, yPosition, imageWidth, imageHeight);
+
+    // 3. Posición del texto (debajo de la imagen, pero en margen izquierdo)
+    yPosition += margin; // Espacio después de la imagen
+
+    // Texto principal (izquierda)
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("Reporte de Movimientos", margin, yPosition);
+
+    // Texto secundario (izquierda)
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Detalles del reporte:", margin, yPosition + 5);
+
+    // 4. Ajustar posición Y para contenido siguiente
+    yPosition += 15; // Espacio después del texto
+    autoTable(doc, {
       startY: yPosition,
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [66, 139, 202] },
+      head: [["Fecha", "Tipo", "Productos", "Códigos", "Detalles", "Empleado"]],
+      body: filteredMovements.map((movement) => [
+        formatDate(movement.date),
+        movement.type === "sales" ? "Venta" : "Transferencia",
+        movement.items.map((item) => item.productName).join(", "),
+        movement.items
+          .map((item) => item.barcode)
+          .filter((b) => b !== "N/A")
+          .join(", ") || "N/A",
+        generateDetails(movement),
+        movement.employee,
+      ]),
+      styles: {
+        fontSize: 8,
+        cellPadding: 3,
+        overflow: "linebreak",
+      },
       columnStyles: {
-        0: { cellWidth: 25 },
-        1: { cellWidth: 20 },
-        2: { cellWidth: 35 },
+        0: { cellWidth: 20 },
+        1: { cellWidth: "auto" },
+        2: { cellWidth: 40 },
         3: { cellWidth: 30 },
-        4: { cellWidth: 40 },
+        4: { cellWidth: "auto" },
         5: { cellWidth: 30 },
       },
     });
+    const dateCurrent = new Date().getFullYear();
+    const footerText = `© ${dateCurrent} Tiendas Móvil Axcel - Todos los derechos reservados`;
+    const footerY = doc.internal.pageSize.height - 10; // 10mm desde abajo
 
-    // Guardar PDF
-    const fileName = `movimientos_${format(
-      new Date(),
-      "yyyy-MM-dd_HH-mm"
-    )}.pdf`;
-    doc.save(fileName);
+    // Texto centrado
+    doc.setFontSize(10);
+    doc.text(
+      footerText,
+      pageWidth / 2,
+      footerY,
+      { align: "center" }
+    );
+    // 5. Guardar el PDF
+    doc.save(`movimientos_${new Date().toISOString()}.pdf`);
   };
 
   if (loading) {
