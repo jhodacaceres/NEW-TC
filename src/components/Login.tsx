@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { supabase } from '../lib/supabase';
-import { Eye, EyeOff } from 'lucide-react';
+import React, { useState } from "react";
+import { useForm } from "react-hook-form";
+import { supabase } from "../lib/supabase";
+import { Eye, EyeOff } from "lucide-react";
 import Logo from "../assets/LOGO.png";
 
 interface LoginProps {
@@ -9,7 +9,11 @@ interface LoginProps {
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const { register, handleSubmit, formState: { errors } } = useForm();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -18,42 +22,51 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     try {
       // Buscar empleado por nombre de usuario y contraseña
       const { data: employee, error } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('username', data.username)
-        .eq('password', data.password)
-        .eq('active', true)
+        .from("employees")
+        .select("*")
+        .eq("username", data.username)
+        .eq("password", data.password)
+        .eq("active", true)
         .single();
 
       if (error || !employee) {
-        throw new Error('Credenciales incorrectas o usuario inactivo');
+        throw new Error("Credenciales incorrectas o usuario inactivo");
       }
 
       // Guardar información del empleado en localStorage para sesión
-      localStorage.setItem('currentEmployee', JSON.stringify({
-        id: employee.id,
-        username: employee.username,
-        first_name: employee.first_name,
-        last_name: employee.last_name,
-        position: employee.position,
-        store_id: employee.store_id
-      }));
+      localStorage.setItem(
+        "currentEmployee",
+        JSON.stringify({
+          id: employee.id,
+          username: employee.username,
+          first_name: employee.first_name,
+          last_name: employee.last_name,
+          position: employee.position,
+          store_id: employee.store_id,
+        })
+      );
 
       onLogin(employee);
     } catch (error: any) {
-      console.error('Error logging in:', error);
-      alert('Error al iniciar sesión: ' + (error.message || 'Credenciales incorrectas'));
+      console.error("Error logging in:", error);
+      alert(
+        "Error al iniciar sesión: " +
+          (error.message || "Credenciales incorrectas")
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: '#121a2f' }}>
+    <div
+      className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
+      style={{ backgroundColor: "#121a2f" }}
+    >
       <div className="max-w-md w-full space-y-8">
         <div>
           <div className="justify-center flex">
-            <img src={Logo} alt="Logo" className="w-auto h-40"/>
+            <img src={Logo} alt="Logo" className="w-auto h-40 object-cover" />
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
             Iniciar Sesión
@@ -65,67 +78,70 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(handleLogin)}>
           <div className="space-y-4">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-300">
+              <label
+                htmlFor="username"
+                className="block text-sm font-medium text-gray-300"
+              >
                 Nombre de Usuario
               </label>
               <input
-                {...register('username', { 
-                  required: 'El nombre de usuario es requerido',
+                {...register("username", {
+                  required: "El nombre de usuario es requerido",
                   minLength: {
                     value: 3,
-                    message: 'El nombre de usuario debe tener al menos 3 caracteres'
-                  }
+                    message:
+                      "El nombre de usuario debe tener al menos 3 caracteres",
+                  },
                 })}
                 type="text"
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                style={{ 
-                  backgroundColor: '#1e293b', 
-                  borderColor: '#475569', 
-                  color: '#e2e8f0' 
-                }}
+                autoComplete="off"
+                className="mt-1 appearance-none bg-[#1e293b] text-[#e2e8f0] border-[#475569] relative block w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Ingrese su nombre de usuario"
               />
               {errors.username && (
-                <p className="mt-1 text-sm text-red-400">{errors.username.message as string}</p>
+                <p className="mt-1 text-sm text-red-400">
+                  {errors.username.message as string}
+                </p>
               )}
             </div>
-            
+
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-300"
+              >
                 Contraseña
               </label>
               <div className="mt-1 relative">
                 <input
-                  {...register('password', { 
-                    required: 'La contraseña es requerida',
+                  {...register("password", {
+                    required: "La contraseña es requerida",
                     minLength: {
                       value: 6,
-                      message: 'La contraseña debe tener al menos 6 caracteres'
-                    }
+                      message: "La contraseña debe tener al menos 6 caracteres",
+                    },
                   })}
-                  type={showPassword ? 'text' : 'password'}
-                  className="appearance-none relative block w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  style={{ 
-                    backgroundColor: '#1e293b', 
-                    borderColor: '#475569', 
-                    color: '#e2e8f0' 
-                  }}
+                  autoComplete="current-password"
+                  type={showPassword ? "text" : "password"}
+                  className="appearance-none bg-[#1e293b] text-[#e2e8f0] border-[#475569] relative block w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                   placeholder="Ingrese su contraseña"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute z-40 inset-y-0 right-0 pr-3 flex items-center"
                 >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400" />
+                    <Eye className="h-5 w-5 text-gray-200" />
                   ) : (
-                    <Eye className="h-5 w-5 text-gray-400" />
+                    <EyeOff className="h-5 w-5 text-gray-200" />
                   )}
                 </button>
               </div>
               {errors.password && (
-                <p className="mt-1 text-sm text-red-400">{errors.password.message as string}</p>
+                <p className="mt-1 text-sm text-red-400">
+                  {errors.password.message as string}
+                </p>
               )}
             </div>
           </div>
@@ -142,13 +158,13 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   Iniciando sesión...
                 </div>
               ) : (
-                'Iniciar Sesión'
+                "Iniciar Sesión"
               )}
             </button>
           </div>
 
           <div className="text-center">
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-blue-200">
               Contacte al administrador para obtener credenciales de acceso
             </p>
           </div>
