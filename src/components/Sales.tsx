@@ -2,7 +2,17 @@ import React, { useEffect, useRef, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import { format } from "date-fns";
 import { supabase } from "../lib/supabase";
-import { Printer, Edit, ArrowLeftIcon, ArrowRightIcon, Save, X, Plus, Minus } from "lucide-react";
+import {
+  Printer,
+  Edit,
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  Save,
+  X,
+  Plus,
+  Minus,
+} from "lucide-react";
+import { useScanner, useAutoSelectProduct } from "../hooks/usescanner";
 
 interface SalesProps {
   exchangeRate: number;
@@ -39,37 +49,41 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
   const [meiCodes, setMeiCodes] = useState<Record<string, string[]>>({});
   const [showMeiInput, setShowMeiInput] = useState<Record<string, boolean>>({});
-  
+  const searchRef = useRef<HTMLInputElement>(null);
+  const {
+    result,
+    onScanner: handleScanner,
+    isEmptyResult,
+    onClearScanner,
+  } = useScanner(searchRef);
+
   // Pagination states
   const [offset, setOffset] = useState(0);
   const [limitItems] = useState(5);
   const [hasMore, setHasMore] = useState(true);
-
-  const searchRef = useRef<HTMLInputElement>(null);
 
   // Cargar datos iniciales
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
+
         // Obtener empleado actual del localStorage
-        const employeeData = localStorage.getItem('currentEmployee');
+        const employeeData = localStorage.getItem("currentEmployee");
         if (employeeData) {
           const employee = JSON.parse(employeeData);
           setCurrentEmployee(employee);
-          
+
           // Si es admin, cargar todas las tiendas
-          if (employee.position === 'administrador') {
+          if (employee.position === "administrador") {
             await fetchStores();
           } else {
             // Si es empleado de ventas, usar su tienda asignada
-            setSelectedStoreId(employee.store_id || '');
+            setSelectedStoreId(employee.store_id || "");
           }
         }
 
         await fetchSalesHistory();
-
       } catch (error) {
         console.error("Error loading data:", error);
         toast.error("Error al cargar los datos", {
@@ -100,14 +114,14 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const fetchStores = async () => {
     try {
       const { data, error } = await supabase
-        .from('stores')
-        .select('*')
-        .order('name');
+        .from("stores")
+        .select("*")
+        .order("name");
 
       if (error) throw error;
       setStores(data || []);
     } catch (error) {
-      console.error('Error fetching stores:', error);
+      console.error("Error fetching stores:", error);
     }
   };
 
@@ -122,7 +136,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
 
       const { data, error } = await supabase
         .from("product_barcodes_store")
-        .select(`
+        .select(
+          `
           id,
           barcode,
           product_id,
@@ -135,19 +150,21 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
             cost_price,
             profit_bob
           )
-        `)
+        `
+        )
         .eq("store_id", selectedStoreId)
         .eq("is_sold", false);
 
       if (error) throw error;
 
       // Formatear los datos para incluir el código de barras con el producto
-      const formattedProducts = data?.map((item: any) => ({
-        barcode_id: item.id,
-        barcode: item.barcode,
-        store_id: item.store_id,
-        ...item.products,
-      })) || [];
+      const formattedProducts =
+        data?.map((item: any) => ({
+          barcode_id: item.id,
+          barcode: item.barcode,
+          store_id: item.store_id,
+          ...item.products,
+        })) || [];
 
       setAvailableProducts(formattedProducts);
     } catch (error) {
@@ -159,11 +176,11 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   // Filtrar productos
   const filteredProducts = searchTerm
     ? availableProducts.filter((product) => {
-        const term = searchTerm.toLowerCase();
+        const term = searchTerm.trim().toLowerCase();
         return (
           product.name.toLowerCase().includes(term) ||
           product.color.toLowerCase().includes(term) ||
-          product.barcode.toLowerCase().includes(term)
+          product.barcode.replace(/\s/g, "").toLowerCase().includes(term)
         );
       })
     : [];
@@ -176,7 +193,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   // Calcular total automáticamente
   const calculateTotal = (products: any[]) => {
     const total = products.reduce(
-      (total, item) => total + calculateFinalPrice(item.cost_price, item.profit_bob),
+      (total, item) =>
+        total + calculateFinalPrice(item.cost_price, item.profit_bob),
       0
     );
     setTotalSale(total);
@@ -184,7 +202,9 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
 
   // Manejar selección de producto
   const handleProductSelect = (product: any) => {
-    const existingProduct = selectedProducts.find((p) => p.barcode_id === product.barcode_id);
+    const existingProduct = selectedProducts.find(
+      (p) => p.barcode_id === product.barcode_id
+    );
     if (existingProduct) {
       toast.error("Este código de barras ya fue escaneado");
       return;
@@ -195,27 +215,29 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     calculateTotal(updatedProducts);
     setSearchTerm("");
     setIsScannerInput(false);
-    
+
     // Inicializar MEI codes para este producto
-    setMeiCodes(prev => ({
+    setMeiCodes((prev) => ({
       ...prev,
-      [product.barcode_id]: []
+      [product.barcode_id]: [],
     }));
   };
 
   // Eliminar producto de la venta
   const removeProductFromSale = (barcodeId: string) => {
-    const updatedProducts = selectedProducts.filter((item) => item.barcode_id !== barcodeId);
+    const updatedProducts = selectedProducts.filter(
+      (item) => item.barcode_id !== barcodeId
+    );
     setSelectedProducts(updatedProducts);
     calculateTotal(updatedProducts);
-    
+
     // Limpiar MEI codes
-    setMeiCodes(prev => {
+    setMeiCodes((prev) => {
       const newMeiCodes = { ...prev };
       delete newMeiCodes[barcodeId];
       return newMeiCodes;
     });
-    setShowMeiInput(prev => {
+    setShowMeiInput((prev) => {
       const newShowMei = { ...prev };
       delete newShowMei[barcodeId];
       return newShowMei;
@@ -228,20 +250,23 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   };
 
   // Agregar código MEI
-  const addMeiCode = (barcodeId: string, meiCode: string) => {
+  const addMeiCode = (barcodeId: string, meiCode: string, nameProduct:string = "este producto") => {
     if (!meiCode.trim()) return;
-    
-    setMeiCodes(prev => ({
+    if ((meiCodes[barcodeId] || []).includes(meiCode)) {
+      toast.error(`Este código MEI ya fue agregado para ${nameProduct}`);
+      return;
+    }
+    setMeiCodes((prev) => ({
       ...prev,
-      [barcodeId]: [...(prev[barcodeId] || []), meiCode.trim()]
+      [barcodeId]: [...(prev[barcodeId] || []), meiCode.trim()],
     }));
   };
 
   // Eliminar código MEI
   const removeMeiCode = (barcodeId: string, index: number) => {
-    setMeiCodes(prev => ({
+    setMeiCodes((prev) => ({
       ...prev,
-      [barcodeId]: prev[barcodeId].filter((_, i) => i !== index)
+      [barcodeId]: prev[barcodeId].filter((_, i) => i !== index),
     }));
   };
 
@@ -272,29 +297,30 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     for (const product of selectedProducts) {
       const productMeiCodes = meiCodes[product.barcode_id] || [];
       if (productMeiCodes.length === 0) {
-        return toast.error(`Debe agregar al menos un código MEI para ${product.name}`, {
-          duration: 3000,
-          position: "top-right",
-        });
+        return toast.error(
+          `Debe agregar al menos un código MEI para ${product.name}`,
+          {
+            duration: 3000,
+            position: "top-right",
+          }
+        );
       }
     }
 
     try {
       // Crear la venta
       const saleId = crypto.randomUUID();
-      const { error: saleError } = await supabase
-        .from("sales")
-        .insert([
-          {
-            id: saleId,
-            employee_id: currentEmployee.id,
-            store_id: selectedStoreId,
-            total_sale: totalSale,
-            type_of_payment: paymentType,
-            quantity_products: selectedProducts.length,
-            sale_date: new Date().toISOString(),
-          },
-        ]);
+      const { error: saleError } = await supabase.from("sales").insert([
+        {
+          id: saleId,
+          employee_id: currentEmployee.id,
+          store_id: selectedStoreId,
+          total_sale: totalSale,
+          type_of_payment: paymentType,
+          quantity_products: selectedProducts.length,
+          sale_date: new Date().toISOString(),
+        },
+      ]);
 
       if (saleError) throw saleError;
 
@@ -353,7 +379,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   // Obtener historial de ventas con paginación
   const fetchSalesHistory = async () => {
     try {
-      const employeeData = localStorage.getItem('currentEmployee');
+      const employeeData = localStorage.getItem("currentEmployee");
       if (!employeeData) {
         console.warn("No employee data found in localStorage");
         setSalesHistory([]);
@@ -361,10 +387,11 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       }
 
       const employee = JSON.parse(employeeData);
-      
+
       let query = supabase
         .from("sales")
-        .select(`
+        .select(
+          `
           id,
           sale_date,
           total_sale,
@@ -373,19 +400,23 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           store_id,
           employees!employee_id (first_name, last_name),
           stores!store_id (name)
-        `)
+        `
+        )
         .order("sale_date", { ascending: false })
         .range(offset, offset + limitItems - 1);
 
       // Si no es administrador, filtrar por tienda
-      if (employee.position !== 'administrador') {
+      if (employee.position !== "administrador") {
         if (!employee.store_id) {
-          console.warn("Employee store_id is missing or undefined for non-admin:", employee);
+          console.warn(
+            "Employee store_id is missing or undefined for non-admin:",
+            employee
+          );
           setSalesHistory([]);
           toast.error("Error: El empleado no tiene una tienda asignada");
           return;
         }
-        query = query.eq('store_id', employee.store_id);
+        query = query.eq("store_id", employee.store_id);
       }
 
       const { data: salesData, error: salesError } = await query;
@@ -398,12 +429,14 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
             // Obtener productos vendidos con códigos de barras y MEI
             const { data: saleProducts } = await supabase
               .from("sale_product")
-              .select(`
+              .select(
+                `
                 barcode_id,
                 mei_codes,
                 products!product_id (name),
                 product_barcodes_store!barcode_id (barcode)
-              `)
+              `
+              )
               .eq("sale_id", sale.id);
 
             return {
@@ -412,15 +445,18 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               total_sale: sale.total_sale,
               type_of_payment: sale.type_of_payment || "",
               quantity_products: sale.quantity_products || 0,
-              employee_name: sale.employees 
-                ? `${sale.employees.first_name} ${sale.employees.last_name || ''}`
+              employee_name: sale.employees
+                ? `${sale.employees.first_name} ${
+                    sale.employees.last_name || ""
+                  }`
                 : "Empleado no encontrado",
               store_name: sale.stores?.name || "Tienda no encontrada",
-              products: saleProducts?.map((sp: any) => ({
-                product_name: sp.products?.name || "Producto no encontrado",
-                barcode: sp.product_barcodes_store?.barcode || "N/A",
-                mei_codes: sp.mei_codes || [],
-              })) || [],
+              products:
+                saleProducts?.map((sp: any) => ({
+                  product_name: sp.products?.name || "Producto no encontrado",
+                  barcode: sp.product_barcodes_store?.barcode || "N/A",
+                  mei_codes: sp.mei_codes || [],
+                })) || [],
             };
           })
         );
@@ -434,21 +470,16 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     }
   };
 
-  // Manejar escáner
-  const handleScanner = () => {
-    if (searchRef.current) {
-      searchRef.current.focus();
-      toast.success("Puede escanear el código", {
-        duration: 3000,
-        position: "top-right",
-      });
-      setIsScannerInput(true);
-    }
-  };
+  useAutoSelectProduct({
+    scannedBarcodes: result,
+    availableProducts,
+    selectedProducts,
+    onSelect: handleProductSelect,
+  });
 
   // Función para imprimir venta
   const handlePrintSale = (sale: SaleHistoryItem) => {
-    const printWindow = window.open('', '_blank');
+    const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.write(`
         <html>
@@ -468,11 +499,16 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           <body>
             <div class="header">
               <h2>FACTURA DE VENTA</h2>
-              <p>Fecha: ${format(new Date(sale.sale_date), "dd/MM/yyyy HH:mm")}</p>
+              <p>Fecha: ${format(
+                new Date(sale.sale_date),
+                "dd/MM/yyyy HH:mm"
+              )}</p>
             </div>
             <div class="details">
               <p><strong>Tipo de Pago:</strong> ${sale.type_of_payment}</p>
-              <p><strong>Cantidad de Productos:</strong> ${sale.quantity_products}</p>
+              <p><strong>Cantidad de Productos:</strong> ${
+                sale.quantity_products
+              }</p>
               <p><strong>Vendedor:</strong> ${sale.employee_name}</p>
               <p><strong>Tienda:</strong> ${sale.store_name}</p>
             </div>
@@ -485,13 +521,17 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                 </tr>
               </thead>
               <tbody>
-                ${sale.products.map(product => `
+                ${sale.products
+                  .map(
+                    (product) => `
                   <tr>
                     <td>${product.product_name}</td>
                     <td>${product.barcode}</td>
-                    <td class="mei-codes">${product.mei_codes.join(', ')}</td>
+                    <td class="mei-codes">${product.mei_codes.join(", ")}</td>
                   </tr>
-                `).join('')}
+                `
+                  )
+                  .join("")}
               </tbody>
             </table>
             <div class="total">
@@ -507,7 +547,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
 
   // Iniciar edición de venta (solo administradores)
   const startEditSale = (sale: SaleHistoryItem) => {
-    if (currentEmployee?.position !== 'administrador') {
+    if (currentEmployee?.position !== "administrador") {
       toast.error("Solo los administradores pueden editar ventas");
       return;
     }
@@ -552,8 +592,11 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   };
 
   // Eliminar producto de venta registrada (solo admin)
-  const removeProductFromRecordedSale = async (saleId: string, productIndex: number) => {
-    if (currentEmployee?.position !== 'administrador') {
+  const removeProductFromRecordedSale = async (
+    saleId: string,
+    productIndex: number
+  ) => {
+    if (currentEmployee?.position !== "administrador") {
       toast.error("Solo los administradores pueden modificar ventas");
       return;
     }
@@ -609,14 +652,18 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       <section className="bg-white rounded-lg shadow p-4 md:p-6">
         <h2 className="text-xl font-semibold mb-6">Nueva Venta</h2>
         <Toaster />
-        
+
         {/* Información del empleado */}
         <div className="mb-6 p-4 bg-blue-50 rounded-lg">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <p className="text-sm text-gray-600">Vendedor:</p>
               <p className="font-medium">
-                {currentEmployee ? `${currentEmployee.first_name} ${currentEmployee.last_name || ''}` : 'No identificado'}
+                {currentEmployee
+                  ? `${currentEmployee.first_name} ${
+                      currentEmployee.last_name || ""
+                    }`
+                  : "No identificado"}
               </p>
             </div>
             <div>
@@ -624,7 +671,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               <p className="font-medium">{exchangeRate} Bs/USD</p>
             </div>
             {/* Selector de tienda para admin */}
-            {currentEmployee?.position === 'administrador' && (
+            {currentEmployee?.position === "administrador" && (
               <div>
                 <p className="text-sm text-gray-600">Tienda:</p>
                 <select
@@ -675,7 +722,10 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                     className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-4"
                   >
                     <img
-                      src={product.image || "https://placehold.co/48x48?text=No+Image"}
+                      src={
+                        product.image ||
+                        "https://placehold.co/48x48?text=No+Image"
+                      }
                       alt={product.name}
                       className="w-12 h-12 object-cover rounded"
                     />
@@ -685,7 +735,11 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                         Color: {product.color}
                       </p>
                       <p className="text-sm text-blue-600 font-medium">
-                        {calculateFinalPrice(product.cost_price, product.profit_bob)} Bs.
+                        {calculateFinalPrice(
+                          product.cost_price,
+                          product.profit_bob
+                        )}{" "}
+                        Bs.
                       </p>
                       <p className="text-xs text-gray-500">
                         Código: {product.barcode}
@@ -699,7 +753,9 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
 
           {/* Tipo de pago */}
           <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mb-4">
-            <label className="text-sm font-medium text-gray-700">Tipo de Pago:</label>
+            <label className="text-sm font-medium text-gray-700">
+              Tipo de Pago:
+            </label>
             <select
               value={paymentType}
               onChange={(e) => setPaymentType(e.target.value)}
@@ -726,17 +782,27 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
                       <div className="flex items-center space-x-4">
                         <img
-                          src={product.image || "https://placehold.co/64x64?text=No+Image"}
+                          src={
+                            product.image ||
+                            "https://placehold.co/64x64?text=No+Image"
+                          }
                           alt={product.name}
                           className="w-16 h-16 object-cover rounded"
                         />
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-medium truncate">{product.name}</h4>
+                          <h4 className="font-medium truncate">
+                            {product.name}
+                          </h4>
                           <p className="text-sm text-gray-600 truncate">
                             Color: {product.color}
                           </p>
                           <p className="text-sm font-medium text-blue-600">
-                            Precio: {calculateFinalPrice(product.cost_price, product.profit_bob)} Bs.
+                            Precio:{" "}
+                            {calculateFinalPrice(
+                              product.cost_price,
+                              product.profit_bob
+                            )}{" "}
+                            Bs.
                           </p>
                           <p className="text-xs text-gray-500">
                             Código: {product.barcode}
@@ -745,7 +811,9 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                       </div>
                       <div className="flex justify-end">
                         <button
-                          onClick={() => removeProductFromSale(product.barcode_id)}
+                          onClick={() =>
+                            removeProductFromSale(product.barcode_id)
+                          }
                           className="text-red-600 hover:text-red-800 text-sm"
                         >
                           Eliminar
@@ -757,32 +825,44 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                     <div className="border-t pt-4">
                       <div className="flex items-center justify-between mb-2">
                         <h5 className="text-sm font-medium text-gray-700">
-                          Códigos MEI ({(meiCodes[product.barcode_id] || []).length})
+                          Códigos MEI (
+                          {(meiCodes[product.barcode_id] || []).length})
                         </h5>
                         <button
-                          onClick={() => setShowMeiInput(prev => ({
-                            ...prev,
-                            [product.barcode_id]: !prev[product.barcode_id]
-                          }))}
+                          onClick={() =>
+                            setShowMeiInput((prev) => ({
+                              ...prev,
+                              [product.barcode_id]: !prev[product.barcode_id],
+                            }))
+                          }
                           className="text-blue-600 hover:text-blue-800 text-sm"
                         >
-                          {showMeiInput[product.barcode_id] ? 'Ocultar' : 'Agregar MEI'}
+                          {showMeiInput[product.barcode_id]
+                            ? "Ocultar"
+                            : "Agregar MEI"}
                         </button>
                       </div>
 
                       {/* Lista de códigos MEI */}
                       <div className="space-y-1 mb-2">
-                        {(meiCodes[product.barcode_id] || []).map((mei, index) => (
-                          <div key={index} className="flex items-center justify-between bg-white px-2 py-1 rounded text-sm">
-                            <span className="font-mono">{mei}</span>
-                            <button
-                              onClick={() => removeMeiCode(product.barcode_id, index)}
-                              className="text-red-600 hover:text-red-800"
+                        {(meiCodes[product.barcode_id] || []).map(
+                          (mei, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between bg-white px-2 py-1 rounded text-sm"
                             >
-                              <Minus size={14} />
-                            </button>
-                          </div>
-                        ))}
+                              <span className="font-mono">{mei}</span>
+                              <button
+                                onClick={() =>
+                                  removeMeiCode(product.barcode_id, index)
+                                }
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                <Minus size={14} />
+                              </button>
+                            </div>
+                          )
+                        )}
                       </div>
 
                       {/* Input para nuevo código MEI */}
@@ -792,21 +872,22 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                             type="text"
                             placeholder="Ingrese código MEI"
                             className="flex-1 text-sm px-2 py-1 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter') {
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
                                 e.preventDefault();
                                 const input = e.target as HTMLInputElement;
-                                addMeiCode(product.barcode_id, input.value);
-                                input.value = '';
+                                addMeiCode(product.barcode_id, input.value, product.name);
+                                input.value = "";
                               }
                             }}
                           />
                           <button
                             onClick={(e) => {
-                              const input = (e.currentTarget as HTMLElement).previousElementSibling as HTMLInputElement;
+                              const input = (e.currentTarget as HTMLElement)
+                                .previousElementSibling as HTMLInputElement;
                               if (input) {
                                 addMeiCode(product.barcode_id, input.value);
-                                input.value = '';
+                                input.value = "";
                               }
                             }}
                             className="px-2 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
@@ -890,7 +971,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               </div>
             </div>
           </div>
-          
+
           {/* Vista de tabla para escritorio */}
           <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -928,31 +1009,54 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                     <td className="px-6 py-4 text-sm">
                       {editingSale === sale.id ? (
                         <div className="space-y-2">
-                          {editFormData.products.map((product: any, index: number) => (
-                            <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                              <div>
-                                <div className="font-medium">{product.product_name}</div>
-                                <div className="text-xs text-gray-500">Código: {product.barcode}</div>
-                                <div className="text-xs text-gray-500">MEI: {product.mei_codes.join(', ')}</div>
+                          {editFormData.products.map(
+                            (product: any, index: number) => (
+                              <div
+                                key={index}
+                                className="flex items-center justify-between bg-gray-50 p-2 rounded"
+                              >
+                                <div>
+                                  <div className="font-medium">
+                                    {product.product_name}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    Código: {product.barcode}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    MEI: {product.mei_codes.join(", ")}
+                                  </div>
+                                </div>
+                                {currentEmployee?.position ===
+                                  "administrador" && (
+                                  <button
+                                    onClick={() =>
+                                      removeProductFromRecordedSale(
+                                        sale.id,
+                                        index
+                                      )
+                                    }
+                                    className="text-red-600 hover:text-red-800 text-xs"
+                                  >
+                                    Eliminar
+                                  </button>
+                                )}
                               </div>
-                              {currentEmployee?.position === 'administrador' && (
-                                <button
-                                  onClick={() => removeProductFromRecordedSale(sale.id, index)}
-                                  className="text-red-600 hover:text-red-800 text-xs"
-                                >
-                                  Eliminar
-                                </button>
-                              )}
-                            </div>
-                          ))}
+                            )
+                          )}
                         </div>
                       ) : (
                         <div className="space-y-1">
                           {sale.products.map((product, index) => (
                             <div key={index} className="text-sm">
-                              <div className="font-medium">{product.product_name}</div>
-                              <div className="text-xs text-gray-500">Código: {product.barcode}</div>
-                              <div className="text-xs text-gray-500">MEI: {product.mei_codes.join(', ')}</div>
+                              <div className="font-medium">
+                                {product.product_name}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Código: {product.barcode}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                MEI: {product.mei_codes.join(", ")}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -962,7 +1066,12 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                       {editingSale === sale.id ? (
                         <select
                           value={editFormData.type_of_payment}
-                          onChange={(e) => setEditFormData({...editFormData, type_of_payment: e.target.value})}
+                          onChange={(e) =>
+                            setEditFormData({
+                              ...editFormData,
+                              type_of_payment: e.target.value,
+                            })
+                          }
                           className="border rounded px-2 py-1 text-sm"
                         >
                           <option value="efectivo">Efectivo</option>
@@ -970,7 +1079,9 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                           <option value="transferencia">Transferencia</option>
                         </select>
                       ) : (
-                        <span className="capitalize">{sale.type_of_payment}</span>
+                        <span className="capitalize">
+                          {sale.type_of_payment}
+                        </span>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -978,7 +1089,12 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                         <input
                           type="number"
                           value={editFormData.total_sale}
-                          onChange={(e) => setEditFormData({...editFormData, total_sale: parseInt(e.target.value)})}
+                          onChange={(e) =>
+                            setEditFormData({
+                              ...editFormData,
+                              total_sale: parseInt(e.target.value),
+                            })
+                          }
                           className="border rounded px-2 py-1 text-sm w-20"
                         />
                       ) : (
@@ -1020,7 +1136,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                           >
                             <Printer size={18} />
                           </button>
-                          {currentEmployee?.position === 'administrador' && (
+                          {currentEmployee?.position === "administrador" && (
                             <button
                               onClick={() => startEditSale(sale)}
                               className="text-green-600 hover:text-green-900"
@@ -1036,7 +1152,10 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                 ))}
                 {salesHistory.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                    <td
+                      colSpan={7}
+                      className="px-6 py-4 text-center text-gray-500"
+                    >
                       No hay ventas registradas
                     </td>
                   </tr>
@@ -1080,7 +1199,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                         >
                           <Printer size={16} />
                         </button>
-                        {currentEmployee?.position === 'administrador' && (
+                        {currentEmployee?.position === "administrador" && (
                           <button
                             onClick={() => startEditSale(sale)}
                             className="text-green-600 hover:text-green-900"
@@ -1093,27 +1212,41 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="space-y-2 text-sm">
                   <div>
                     <span className="text-gray-600">Productos:</span>
                     <div className="mt-1 space-y-1">
                       {sale.products.map((product, index) => (
-                        <div key={index} className="bg-white p-2 rounded text-xs">
-                          <div className="font-medium">{product.product_name}</div>
-                          <div className="text-gray-500">Código: {product.barcode}</div>
-                          <div className="text-gray-500">MEI: {product.mei_codes.join(', ')}</div>
+                        <div
+                          key={index}
+                          className="bg-white p-2 rounded text-xs"
+                        >
+                          <div className="font-medium">
+                            {product.product_name}
+                          </div>
+                          <div className="text-gray-500">
+                            Código: {product.barcode}
+                          </div>
+                          <div className="text-gray-500">
+                            MEI: {product.mei_codes.join(", ")}
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
-                  
+
                   <div className="flex justify-between">
                     <span className="text-gray-600">Tipo de Pago:</span>
                     {editingSale === sale.id ? (
                       <select
                         value={editFormData.type_of_payment}
-                        onChange={(e) => setEditFormData({...editFormData, type_of_payment: e.target.value})}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            type_of_payment: e.target.value,
+                          })
+                        }
                         className="border rounded px-2 py-1 text-xs"
                       >
                         <option value="efectivo">Efectivo</option>
@@ -1124,14 +1257,19 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                       <span className="capitalize">{sale.type_of_payment}</span>
                     )}
                   </div>
-                  
+
                   <div className="flex justify-between">
                     <span className="text-gray-600">Total:</span>
                     {editingSale === sale.id ? (
                       <input
                         type="number"
                         value={editFormData.total_sale}
-                        onChange={(e) => setEditFormData({...editFormData, total_sale: parseInt(e.target.value)})}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            total_sale: parseInt(e.target.value),
+                          })
+                        }
                         className="border rounded px-2 py-1 text-xs w-20"
                       />
                     ) : (
@@ -1140,12 +1278,12 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                       </span>
                     )}
                   </div>
-                  
+
                   <div className="flex justify-between">
                     <span className="text-gray-600">Vendedor:</span>
                     <span>{sale.employee_name}</span>
                   </div>
-                  
+
                   <div className="flex justify-between">
                     <span className="text-gray-600">Tienda:</span>
                     <span>{sale.store_name}</span>
@@ -1153,7 +1291,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                 </div>
               </div>
             ))}
-            
+
             {salesHistory.length === 0 && (
               <div className="text-center text-gray-500 py-8">
                 No hay ventas registradas
