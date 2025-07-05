@@ -738,7 +738,7 @@ export const PurchaseOrders: React.FC = () => {
               min="1"
               value={quantity}
               onChange={(e) => setQuantity(Number(e.target.value))}
-              className="mt-1 w-full border rounded-md px-3 py-2"
+              className="mt-1 px-4 py-2 w-full border rounded-md"
             />
           </div>
           <div>
@@ -751,7 +751,7 @@ export const PurchaseOrders: React.FC = () => {
               min="0"
               value={priceUnit}
               onChange={(e) => setPriceUnit(Number(e.target.value))}
-              className="mt-1 w-full border rounded-md px-3 py-2"
+              className="mt-1 px-4 py-2 w-full border rounded-md"
             />
           </div>
           <div className="sm:col-span-2 lg:col-span-1 flex items-end">
@@ -1372,7 +1372,7 @@ export const PurchaseOrders: React.FC = () => {
                     },
                     valueAsNumber: true,
                   })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="mt-1 px-4 py-2 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                 />
                 {paymentFormErrors.amount && (
                   <p className="mt-1 text-sm text-red-600">
@@ -1622,7 +1622,7 @@ export const PurchaseOrders: React.FC = () => {
                     },
                     valueAsNumber: true,
                   })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="mt-1 px-4 py-2 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                 />
                 {paymentFormErrors.amount && (
                   <p className="mt-1 text-sm text-red-600">

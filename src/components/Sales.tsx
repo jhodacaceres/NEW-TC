@@ -52,9 +52,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const searchRef = useRef<HTMLInputElement>(null);
   const {
     result,
-    onScanner: handleScanner,
-    isEmptyResult,
-    onClearScanner,
+    onScanner: handleScanner
   } = useScanner(searchRef);
 
   // Pagination states
@@ -677,7 +675,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                 <select
                   value={selectedStoreId}
                   onChange={(e) => setSelectedStoreId(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="mt-1 block px-4 py-2 w-full rounded-md border border-gray-200 cursor-pointer  focus:border-blue-500 focus:ring-blue-500"
                 >
                   <option value="">Seleccionar tienda</option>
                   {stores.map((store) => (

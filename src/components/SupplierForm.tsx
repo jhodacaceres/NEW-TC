@@ -80,7 +80,7 @@ export const SupplierForm: React.FC<SupplierFormProps> = ({ onSubmit, supplier }
           <input
             type="text"
             {...register('first_name', { required: 'Este campo es requerido' })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 px-4 py-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
           {errors.first_name && (
             <p className="mt-1 text-sm text-red-600">{errors.first_name.message}</p>
@@ -93,7 +93,7 @@ export const SupplierForm: React.FC<SupplierFormProps> = ({ onSubmit, supplier }
           <input
             type="text"
             {...register('last_name', { required: 'Este campo es requerido' })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block px-4 py-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
           {errors.last_name && (
             <p className="mt-1 text-sm text-red-600">{errors.last_name.message}</p>
@@ -106,7 +106,7 @@ export const SupplierForm: React.FC<SupplierFormProps> = ({ onSubmit, supplier }
           <input
             type="tel"
             {...register('phone', { required: 'Este campo es requerido' })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block px-4 py-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
           {errors.phone && (
             <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>

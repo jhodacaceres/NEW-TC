@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2, Search, Eye, EyeOff } from "lucide-react";
 import { Employee } from "../types";
 import { EmployeeForm } from "./EmployeeForm";
@@ -244,9 +244,9 @@ export const Employees = () => {
                             className="text-gray-400 hover:text-gray-600"
                           >
                             {showPasswords[employee.id] ? (
-                              <EyeOff size={16} />
-                            ) : (
                               <Eye size={16} />
+                            ) : (
+                              <EyeOff size={16} />
                             )}
                           </button>
                         </div>

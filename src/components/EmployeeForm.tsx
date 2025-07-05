@@ -65,7 +65,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
           <input
             type="text"
             {...register("first_name", { required: "Este campo es requerido" })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full px-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             placeholder="Ingrese el nombre"
           />
           {errors.first_name && (
@@ -82,7 +82,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
           <input
             type="text"
             {...register("last_name")}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block px-4 py-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             placeholder="Ingrese el apellido (opcional)"
           />
         </div>
@@ -104,7 +104,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 message: "Solo se permiten letras, números y guiones bajos"
               }
             })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block px-4 py-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             placeholder="Ingrese el nombre de usuario"
           />
           {errors.username && (
@@ -127,7 +127,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 message: "La contraseña debe tener al menos 6 caracteres"
               }
             })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block px-4 py-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             placeholder="Ingrese la contraseña"
           />
           {errors.password && (
@@ -143,7 +143,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
           </label>
           <select
             {...register("position", { required: "Este campo es requerido" })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block px-4 py-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           >
             <option value="">Seleccione un cargo</option>
             <option value="ventas">Ventas</option>
@@ -162,7 +162,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
           </label>
           <select
             {...register("store_id", { required: "Este campo es requerido" })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block px-4 py-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           >
             <option value="">Seleccione una tienda</option>
             {stores.map((store) => (
@@ -190,7 +190,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 message: "Ingrese un número de teléfono válido",
               },
             })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block px-4 py-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             placeholder="+591 XXXXXXXX (opcional)"
           />
           {errors.phone && (

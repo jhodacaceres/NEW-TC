@@ -91,7 +91,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           <input
             type="text"
             {...register("name", { required: "Este campo es requerido" })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block px-4 py-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
           {errors.name && (
             <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
@@ -106,7 +106,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             type="file"
             accept="image/*"
             onChange={(e) => setSelectedImage(e.target.files?.[0] || null)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 px-4 py-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
 
@@ -117,7 +117,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           <input
             type="text"
             {...register("color", { required: "Este campo es requerido" })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 px-4 py-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
           {errors.color && (
             <p className="mt-1 text-sm text-red-600">{errors.color.message}</p>
@@ -132,7 +132,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               required: "Este campo es requerido",
               min: { value: 0, message: "Debe ser mayor o igual a 0" },
             })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 px-4 py-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
           {errors.ram && (
             <p className="mt-1 text-sm text-red-600">{errors.ram.message}</p>
@@ -147,7 +147,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               required: "Este campo es requerido",
               min: { value: 0, message: "Debe ser mayor o igual a 0" },
             })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 px-4 py-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
           {errors.rom && (
             <p className="mt-1 text-sm text-red-600">{errors.rom.message}</p>
@@ -165,7 +165,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 message: "Máximo 100 caracteres",
               },
             })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block px-4 py-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
           {errors.processor && (
             <p className="mt-1 text-sm text-red-600">{errors.processor.message}</p>
@@ -183,7 +183,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               required: "Este campo es requerido",
               min: { value: 0, message: "El precio debe ser mayor a 0" },
             })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 px-4 py-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
           {errors.cost_price && (
             <p className="mt-1 text-sm text-red-600">
@@ -206,7 +206,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 message: "La ganancia debe ser mayor o igual a 0",
               },
             })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 px-4 py-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
           {errors.profit_bob && (
             <p className="mt-1 text-sm text-red-600">

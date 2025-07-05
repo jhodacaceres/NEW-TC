@@ -396,7 +396,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({
                           value={newBarcode}
                           onChange={(e) => setNewBarcode(e.target.value)}
                           placeholder="Escanee o ingrese código de barras"
-                          className="flex-1 text-xs px-2 py-1 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                          className="flex-1 px-4 py-2 text-xs border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
                           onKeyPress={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
