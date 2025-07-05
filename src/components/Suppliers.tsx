@@ -1,23 +1,25 @@
-import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search } from 'lucide-react'; // Importa el ícono de búsqueda
-import { Supplier } from '../types';
-import { SupplierForm } from './SupplierForm';
-import { supabase } from '../lib/supabase'; // Asegúrate de tener la configuración de Supabase
+import { useState, useEffect } from "react";
+import { Plus, Edit2, Trash2, Search } from "lucide-react"; // Importa el ícono de búsqueda
+import { Supplier } from "../types";
+import { SupplierForm } from "./SupplierForm";
+import { supabase } from "../lib/supabase"; // Asegúrate de tener la configuración de Supabase
 
 export const Suppliers = () => {
   const [showForm, setShowForm] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | undefined>();
-  const [searchTerm, setSearchTerm] = useState(''); // Nuevo estado para el término de búsqueda
+  const [selectedSupplier, setSelectedSupplier] = useState<
+    Supplier | undefined
+  >();
+  const [searchTerm, setSearchTerm] = useState(""); // Nuevo estado para el término de búsqueda
 
   // Obtener los proveedores desde Supabase
   useEffect(() => {
     const fetchSuppliers = async () => {
-      const { data, error } = await supabase.from('suppliers').select('*');
+      const { data, error } = await supabase.from("suppliers").select("*");
       if (data) {
         setSuppliers(data);
       } else {
-        console.error('Error fetching suppliers: ', error);
+        console.error("Error fetching suppliers: ", error);
       }
     };
 
@@ -29,16 +31,16 @@ export const Suppliers = () => {
     if (selectedSupplier) {
       // Editar proveedor
       const { error } = await supabase
-        .from('suppliers')
+        .from("suppliers")
         .update({
           first_name: data.first_name,
           last_name: data.last_name,
           phone: data.phone,
         })
-        .eq('id', selectedSupplier.id);
+        .eq("id", selectedSupplier.id);
 
       if (error) {
-        console.error('Error updating supplier:', error);
+        console.error("Error updating supplier:", error);
       } else {
         setSuppliers(
           suppliers.map((sup) =>
@@ -49,7 +51,7 @@ export const Suppliers = () => {
     } else {
       // Crear nuevo proveedor
       const { data: newSupplier, error } = await supabase
-        .from('suppliers')
+        .from("suppliers")
         .insert([
           {
             ...data,
@@ -61,7 +63,7 @@ export const Suppliers = () => {
         .single();
 
       if (error) {
-        console.error('Error inserting supplier:', error);
+        console.error("Error inserting supplier:", error);
       } else {
         if (newSupplier) {
           setSuppliers([...suppliers, newSupplier]);
@@ -80,9 +82,9 @@ export const Suppliers = () => {
 
   // Eliminar proveedor
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from('suppliers').delete().eq('id', id);
+    const { error } = await supabase.from("suppliers").delete().eq("id", id);
     if (error) {
-      console.error('Error deleting supplier:', error);
+      console.error("Error deleting supplier:", error);
     } else {
       setSuppliers(suppliers.filter((sup) => sup.id !== id));
     }
@@ -94,10 +96,11 @@ export const Suppliers = () => {
   };
 
   // Filtrar proveedores basado en el término de búsqueda
-  const filteredSuppliers = suppliers.filter((supplier) =>
-    supplier.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    supplier.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    supplier.phone.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredSuppliers = suppliers.filter(
+    (supplier) =>
+      supplier.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      supplier.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      supplier.phone.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -106,7 +109,7 @@ export const Suppliers = () => {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold">
-              {selectedSupplier ? 'Editar Proveedor' : 'Nuevo Proveedor'}
+              {selectedSupplier ? "Editar Proveedor" : "Nuevo Proveedor"}
             </h2>
             <button
               onClick={() => {
@@ -122,26 +125,27 @@ export const Suppliers = () => {
         </div>
       ) : (
         <>
-          <div className="mb-6 flex justify-between items-center"> {/* Contenedor para el botón y el buscador */}
-            <button
-              onClick={() => setShowForm(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
-            >
-              <Plus size={20} />
-              Nuevo Proveedor
-            </button>
-
-            {/* Input de búsqueda */}
-            <div className="relative flex items-center">
-              <Search size={20} className="absolute left-3 text-gray-400" />
+          <div className="mb-6 flex flex-col md:flex-row gap-4 w-full">
+            <div className="relative w-full md:flex-1">
+              <Search
+                size={20}
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+              />
               <input
                 type="text"
                 placeholder="Buscar proveedor..."
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={searchTerm}
                 onChange={handleSearch}
               />
             </div>
+            <button
+              onClick={() => setShowForm(true)}
+              className="bg-blue-600 justify-center text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors whitespace-nowrap flex-shrink-0 md:w-auto w-full md:w-auto"
+            >
+              <Plus size={20} />
+              Nuevo Proveedor
+            </button>
           </div>
 
           <div className="hidden sm:block bg-white rounded-lg shadow overflow-hidden">
@@ -163,7 +167,7 @@ export const Suppliers = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredSuppliers.map((supplier) => ( 
+                {filteredSuppliers.map((supplier) => (
                   <tr key={supplier.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {supplier.first_name}
@@ -192,8 +196,12 @@ export const Suppliers = () => {
                 ))}
                 {filteredSuppliers.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
-                      No hay proveedores registrados que coincidan con la búsqueda.
+                    <td
+                      colSpan={4}
+                      className="px-6 py-4 text-center text-gray-500"
+                    >
+                      No hay proveedores registrados que coincidan con la
+                      búsqueda.
                     </td>
                   </tr>
                 )}
@@ -208,7 +216,9 @@ export const Suppliers = () => {
                 <p className="text-sm font-semibold text-gray-800">
                   {supplier.first_name} {supplier.last_name}
                 </p>
-                <p className="text-sm text-gray-600">Teléfono: {supplier.phone}</p>
+                <p className="text-sm text-gray-600">
+                  Teléfono: {supplier.phone}
+                </p>
                 <div className="flex justify-end space-x-4 mt-3">
                   <button
                     onClick={() => handleEdit(supplier)}
@@ -226,7 +236,9 @@ export const Suppliers = () => {
               </div>
             ))}
             {filteredSuppliers.length === 0 && (
-              <div className="text-center text-gray-500">No hay proveedores registrados que coincidan con la búsqueda.</div>
+              <div className="text-center text-gray-500">
+                No hay proveedores registrados que coincidan con la búsqueda.
+              </div>
             )}
           </div>
         </>
