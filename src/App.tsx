@@ -29,28 +29,31 @@ function App() {
   const [showProductForm, setShowProductForm] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | undefined>();
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [sales, setSales] = useState<Sale[]>([]);
   const [exchangeRate, setExchangeRate] = useState(6.96);
-
+  const [productsInactivesLength, setProductsInactivesLength] = useState(0);
   useEffect(() => {
     const fetchData = async () => {
       // Cargar productos
       const { data: productsData, error: productsError } = await supabase
         .from("products")
         .select("*")
-        .eq("active", true);
+        .order("name", { ascending: true });
 
       if (productsError)
         console.error("Error fetching products:", productsError);
-      else setProducts(productsData);
+      else {
+        setProducts(productsData.filter((p) => p.active));
+        setProductsInactivesLength(
+          productsData.filter((p) => !p.active).length
+        );
+      }
 
       // Cargar tiendas
       const { data: storesData, error: storesError } = await supabase
         .from("stores")
         .select("*");
 
-      if (storesError)
-        console.error("Error fetching stores:", storesError);
+      if (storesError) console.error("Error fetching stores:", storesError);
       else setStores(storesData || []);
 
       // Cargar empleados
@@ -75,12 +78,12 @@ function App() {
     };
 
     fetchData();
-  }, []);
+  }, [products]);
 
   useEffect(() => {
     const checkAuth = async () => {
       // Verificar si hay un empleado guardado en localStorage
-      const employeeData = localStorage.getItem('currentEmployee');
+      const employeeData = localStorage.getItem("currentEmployee");
       if (employeeData) {
         const employee = JSON.parse(employeeData);
         setCurrentEmployee(employee);
@@ -103,8 +106,8 @@ function App() {
 
   const handleProductSubmit = async (data: Partial<Product>) => {
     // Solo permitir a administradores crear/editar productos
-    if (currentEmployee?.position !== 'administrador') {
-      alert('No tienes permisos para realizar esta acción');
+    if (currentEmployee?.position !== "administrador") {
+      alert("No tienes permisos para realizar esta acción");
       return;
     }
 
@@ -163,8 +166,8 @@ function App() {
 
   const handleStoreCreate = (data: Partial<Store>) => {
     // Solo permitir a administradores
-    if (currentEmployee?.position !== 'administrador') {
-      alert('No tienes permisos para realizar esta acción');
+    if (currentEmployee?.position !== "administrador") {
+      alert("No tienes permisos para realizar esta acción");
       return;
     }
 
@@ -179,8 +182,8 @@ function App() {
 
   const handleStoreUpdate = (id: string, data: Partial<Store>) => {
     // Solo permitir a administradores
-    if (currentEmployee?.position !== 'administrador') {
-      alert('No tienes permisos para realizar esta acción');
+    if (currentEmployee?.position !== "administrador") {
+      alert("No tienes permisos para realizar esta acción");
       return;
     }
 
@@ -195,8 +198,8 @@ function App() {
 
   const handleStoreDelete = (id: string) => {
     // Solo permitir a administradores
-    if (currentEmployee?.position !== 'administrador') {
-      alert('No tienes permisos para realizar esta acción');
+    if (currentEmployee?.position !== "administrador") {
+      alert("No tienes permisos para realizar esta acción");
       return;
     }
 
@@ -216,8 +219,8 @@ function App() {
 
   const handleProductAssign = (storeId: string, productId: string) => {
     // Solo permitir a administradores
-    if (currentEmployee?.position !== 'administrador') {
-      alert('No tienes permisos para realizar esta acción');
+    if (currentEmployee?.position !== "administrador") {
+      alert("No tienes permisos para realizar esta acción");
       return;
     }
 
@@ -235,26 +238,24 @@ function App() {
     employeeId: string;
   }) => {
     // Solo permitir a administradores crear transferencias
-    if (currentEmployee?.position !== 'administrador') {
-      alert('No tienes permisos para realizar esta acción');
+    if (currentEmployee?.position !== "administrador") {
+      alert("No tienes permisos para realizar esta acción");
       return;
     }
 
     try {
       // Create the transfer record
       const transferId = crypto.randomUUID();
-      const { error: transferError } = await supabase
-        .from("transfers")
-        .insert([
-          {
-            id: transferId,
-            from_store_id: transferData.fromStoreId,
-            to_store_id: transferData.toStoreId,
-            employee_id: transferData.employeeId,
-            transfer_date: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-          },
-        ]);
+      const { error: transferError } = await supabase.from("transfers").insert([
+        {
+          id: transferId,
+          from_store_id: transferData.fromStoreId,
+          to_store_id: transferData.toStoreId,
+          employee_id: transferData.employeeId,
+          transfer_date: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+        },
+      ]);
 
       if (transferError) throw transferError;
 
@@ -282,8 +283,8 @@ function App() {
 
   const handleEdit = (product: Product) => {
     // Solo permitir a administradores editar productos
-    if (currentEmployee?.position !== 'administrador') {
-      alert('No tienes permisos para realizar esta acción');
+    if (currentEmployee?.position !== "administrador") {
+      alert("No tienes permisos para realizar esta acción");
       return;
     }
 
@@ -293,8 +294,8 @@ function App() {
 
   const handleToggleActive = async (id: string) => {
     // Solo permitir a administradores desactivar productos
-    if (currentEmployee?.position !== 'administrador') {
-      alert('No tienes permisos para realizar esta acción');
+    if (currentEmployee?.position !== "administrador") {
+      alert("No tienes permisos para realizar esta acción");
       return;
     }
 
@@ -316,18 +317,32 @@ function App() {
     }
   };
 
-  const filteredProducts = products
-    .filter((product) => product.active)
-    .filter((product) => {
-      const term = searchTerm.toLowerCase();
-      return (
-        product.name.toLowerCase().includes(term) ||
-        product.barcode?.toLowerCase().includes(term) ||
-        product.color.toLowerCase().includes(term)
-      );
-    });
+  const productsByRole = (productsStore: any) => {
+    if (currentEmployee?.position === "administrador") {
+      return productsStore.filter((product) => product.active);
+    }
+    if (currentEmployee?.position === "ventas") {
+      return productsStore.filter(
+        (product) => {
+          product.store_id === currentEmployee?.store_id && product.active
 
+        }
+      );
+    }
+    return productsStore;
+  };
+
+  const filteredProducts = productsByRole(products).filter((product) => {
+    const term = searchTerm.toLowerCase();
+    return (
+      product.name.toLowerCase().includes(term) ||
+      product.barcode?.toLowerCase().includes(term) ||
+      product.color.toLowerCase().includes(term)
+    );
+  });
   const renderContent = () => {
+    const productsActive = productsByRole(products).length;
+
     switch (currentPage) {
       case "dashboard":
         return (
@@ -337,9 +352,7 @@ function App() {
           />
         );
       case "sales":
-        return (
-          <Sales exchangeRate={exchangeRate} />
-        );
+        return <Sales exchangeRate={exchangeRate} />;
       case "transfers":
         return (
           <TransferComponent
@@ -368,7 +381,7 @@ function App() {
         return <Employees />;
       case "products":
         return (
-          <>
+          <main>
             {showProductForm ? (
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex justify-between items-center mb-6">
@@ -393,7 +406,7 @@ function App() {
               </div>
             ) : (
               <>
-                <div className="relative mb-8">
+                <header className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Search className="h-5 w-5 text-gray-400" />
                   </div>
@@ -404,9 +417,46 @@ function App() {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
-                </div>
+                </header>
+                {/* Tarjetas de contadores solo para admin*/}
+                {currentEmployee?.position === "administrador" ? (
+                  <section className="flex gap-4 my-8">
+                    <div className="bg-gray-700/50 p-6 w-1/2 rounded-xl border border-gray-600/50">
+                      <h3 className="text-2xl font-semibold mb-4 text-blue-300">
+                        Cantidad de Productos
+                      </h3>
+                      <p className="text-gray-300 font-bold text-2xl">
+                        {productsActive} productos activos
+                      </p>
+                    </div>
+                    <div className="bg-gray-700/50 p-6 w-1/2 rounded-xl border border-gray-600/50">
+                      <h3 className="text-2xl font-semibold mb-4 text-blue-300">
+                        Cantidad de Productos Inactivos
+                      </h3>
+                      <p className="text-gray-300 font-bold text-2xl">
+                        {productsInactivesLength} productos inactivos
+                      </p>
+                    </div>
+                  </section>
+                ) : (
+                  <section className="flex gap-4 my-8">
+                    <div className="bg-gray-700/50 p-6 w-1/2 rounded-xl border border-gray-600/50">
+                      <h3 className="text-2xl font-semibold mb-4 text-blue-300">
+                        {/* Poner el nombre de la tienda del empleado*/} 
+                        Cantidad de Productos {
+                          stores.find(
+                            (store) => store.id === currentEmployee?.store_id
+                          )?.name || "de la tienda"
+                        }
+                      </h3>
+                      <p className="text-gray-300 font-bold text-2xl">
+                        {productsActive} productos
+                      </p>
+                    </div>
+                  </section>
+                )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {filteredProducts.map((product) => (
                     <ProductCard
                       key={product.id}
@@ -416,7 +466,7 @@ function App() {
                       exchangeRate={exchangeRate}
                     />
                   ))}
-                </div>
+                </section>
 
                 {filteredProducts.length === 0 && (
                   <div className="text-center py-12">
@@ -427,7 +477,7 @@ function App() {
                 )}
               </>
             )}
-          </>
+          </main>
         );
       case "suppliers":
         return <Suppliers />;
@@ -449,13 +499,16 @@ function App() {
   };
 
   // Verificar permisos para mostrar botones de acción
-  const canCreateProduct = currentEmployee?.position === 'administrador' && currentPage === "products" && !showProductForm;
+  const canCreateProduct =
+    currentEmployee?.position === "administrador" &&
+    currentPage === "products" &&
+    !showProductForm;
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar 
-        currentPage={currentPage} 
-        onPageChange={setCurrentPage} 
+      <Sidebar
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
         currentEmployee={currentEmployee}
       />
 
