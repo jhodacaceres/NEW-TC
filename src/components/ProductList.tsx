@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { ProductCard } from './ProductCard';
 import { ProductForm } from './ProductForm';
@@ -69,7 +69,7 @@ export const ProductList = () => {
             key={product.id}
             product={product}
             onEdit={handleEditProduct}
-            onDelete={handleDeleteProduct}
+            onToggleActive={handleDeleteProduct}
             exchangeRate={6.96}
           />
         ))}
