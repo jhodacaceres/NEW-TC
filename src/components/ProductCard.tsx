@@ -19,10 +19,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const [showConfirm, setShowConfirm] = useState(false);
   const [stockCount, setStockCount] = useState(0);
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
+  const [isVisible, setIsVisible] = useState(true);
 
   // Obtener empleado actual
   useEffect(() => {
-    const employeeData = localStorage.getItem('currentEmployee');
+    const employeeData = localStorage.getItem("currentEmployee");
     if (employeeData) {
       setCurrentEmployee(JSON.parse(employeeData));
     }
@@ -34,30 +35,25 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       if (!currentEmployee) return;
 
       try {
-        if (currentEmployee.position === 'administrador') {
-          // Admin ve todos los códigos de barras del producto
-          const { data, error } = await supabase
-            .from('product_barcodes_store')
-            .select('id')
-            .eq('product_id', product.id)
-            .eq('is_sold', false);
+        const query = currentEmployee.position === "administrador" 
+          ? supabase
+              .from("product_barcodes_store")
+              .select("id")
+              .eq("product_id", product.id)
+              .eq("is_sold", false)
+          : supabase
+              .from("product_barcodes_store")
+              .select("id")
+              .eq("product_id", product.id)
+              .eq("store_id", currentEmployee.store_id)
+              .eq("is_sold", false);
 
-          if (error) throw error;
-          setStockCount(data?.length || 0);
-        } else {
-          // Empleado de ventas ve solo los de su tienda
-          const { data, error } = await supabase
-            .from('product_barcodes_store')
-            .select('id')
-            .eq('product_id', product.id)
-            .eq('store_id', currentEmployee.store_id)
-            .eq('is_sold', false);
+        const { data, error } = await query;
 
-          if (error) throw error;
-          setStockCount(data?.length || 0);
-        }
+        if (error) throw error;
+        setStockCount(data?.length || 0);
       } catch (error) {
-        console.error('Error calculating stock:', error);
+        console.error("Error calculating stock:", error);
         setStockCount(0);
       }
     };
@@ -65,12 +61,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     calculateStock();
   }, [product.id, currentEmployee]);
 
-  // Si el producto no está activo, no renderizar nada
-  if (!product.active) {
+  const handleToggleActive = async () => {
+    setShowConfirm(false);
+    setIsVisible(false);
+    // Espera a que termine la animación antes de desactivar
+    setTimeout(() => onToggleActive(product.id, false), 300);
+  };
+
+  if (!isVisible || !product.active) {
     return null;
   }
 
-  // Convertir costo a Bs y sumar ganancia en Bs
   const finalPriceInBs = product.cost_price * exchangeRate + product.profit_bob;
 
   const getImageUrl = () => {
@@ -83,13 +84,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     return `${supabase.supabaseUrl}/storage/v1/object/public/product-images/${product.image}`;
   };
 
-  const handleToggleActive = async () => {
-    await onToggleActive(product.id, false);
-    setShowConfirm(false);
-  };
-
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:scale-[1.02] relative">
+    <div
+      className={`bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 transform hover:scale-[1.02] ${
+        !isVisible ? "opacity-0 scale-95 h-0" : "opacity-100 scale-100 h-auto"
+      }`}
+      style={{
+        transitionProperty: 'opacity, transform, height',
+        willChange: 'opacity, transform, height'
+      }}
+    >
       <div className="relative h-48 overflow-hidden bg-gray-100">
         <img
           src={getImageUrl()}
@@ -99,6 +103,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             (e.target as HTMLImageElement).src =
               "https://placehold.co/400x300?text=Image+Error";
           }}
+          loading="lazy"
         />
         <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded-full text-sm">
           Stock: {stockCount}
@@ -108,16 +113,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <div className="p-4">
         <h3 className="text-lg font-semibold text-gray-800">{product.name}</h3>
         <p className="text-sm text-gray-600 mt-1">Color: {product.color}</p>
-        <p className="text-xl font-bold text-blue-600 mt-2">
+        <p className="text-xl font-bold text-blue-200 mt-2">
           Precio final: {Math.round(Number(finalPriceInBs))} Bs
         </p>
-        
-        {/* Solo mostrar botones de edición/eliminación a administradores */}
-        {currentEmployee?.position === 'administrador' && (
+
+        {currentEmployee?.position === "administrador" && (
           <div className="mt-4 flex justify-end space-x-2">
             <button
               onClick={() => onEdit(product)}
-              className="p-2 text-blue-600 hover:bg-blue-50 rounded-full"
+              className="p-2 text-blue-400 hover:bg-blue-50 rounded-full"
               aria-label="Editar producto"
             >
               <Edit size={20} />
@@ -133,7 +137,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         )}
       </div>
 
-      {/* Modal de confirmación */}
       {showConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
