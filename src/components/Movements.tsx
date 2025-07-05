@@ -392,7 +392,7 @@ export const Movements: React.FC = () => {
             <select
               value={selectedStore}
               onChange={(e) => setSelectedStore(e.target.value)}
-              className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-2 rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">Todas las tiendas</option>
               {stores.map((store) => (
@@ -410,7 +410,7 @@ export const Movements: React.FC = () => {
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value as any)}
-              className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-2 rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="all">Todos</option>
               <option value="sales">Ventas</option>
@@ -428,7 +428,7 @@ export const Movements: React.FC = () => {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 pl-10"
+                className="w-full rounded-lg px-4 py-2 border-gray-300 focus:ring-blue-500 focus:border-blue-500 pl-10"
               />
               <Calendar
                 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
@@ -446,7 +446,7 @@ export const Movements: React.FC = () => {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 pl-10"
+                className="w-full px-4 py-2 rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 pl-10"
               />
               <Calendar
                 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"

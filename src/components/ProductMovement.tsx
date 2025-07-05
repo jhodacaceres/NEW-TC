@@ -75,7 +75,7 @@ useEffect(() => {
             <select
               value={movementType}
               onChange={(e) => setMovementType(e.target.value as any)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 block px-4 py-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             >
               <option value="SALE">Venta</option>
               <option value="TRANSFER">Transferencia</option>
@@ -90,7 +90,7 @@ useEffect(() => {
             <select
               value={selectedProduct}
               onChange={(e) => setSelectedProduct(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 block px-4 py-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             >
               <option value="">Seleccionar producto</option>
@@ -111,7 +111,7 @@ useEffect(() => {
               min="1"
               value={quantity}
               onChange={(e) => setQuantity(parseInt(e.target.value))}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 px-4 py-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             />
           </div>
@@ -123,7 +123,7 @@ useEffect(() => {
             <select
               value={employee}
               onChange={(e) => setEmployee(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 block px-4 py-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             >
               <option value="">Seleccionar empleado</option>
@@ -143,7 +143,7 @@ useEffect(() => {
               <select
                 value={fromStore}
                 onChange={(e) => setFromStore(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block px-4 py-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 required
               >
                 <option value="">Seleccionar tienda</option>
@@ -164,7 +164,7 @@ useEffect(() => {
               <select
                 value={toStore}
                 onChange={(e) => setToStore(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block px-4 py-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 required
               >
                 <option value="">Seleccionar tienda</option>
