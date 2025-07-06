@@ -488,8 +488,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     onSelect: handleProductSelect,
   });
 
-  // Función para imprimir venta
-  const handlePrintSale = (sale: SaleHistoryItem) => {
+  // Función para imprimir factura en formato térmico
+  const handlePrintInvoice = (sale: SaleHistoryItem) => {
     const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.write(`
@@ -497,64 +497,133 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           <head>
             <title>Factura - ${sale.id}</title>
             <style>
-              body { font-family: Arial, sans-serif; margin: 20px; }
-              .header { text-align: center; margin-bottom: 20px; }
-              .details { margin-bottom: 20px; }
-              .customer-info { background-color: #f5f5f5; padding: 10px; margin-bottom: 20px; border-radius: 5px; }
-              .products { width: 100%; border-collapse: collapse; }
-              .products th, .products td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-              .products th { background-color: #f2f2f2; }
-              .total { text-align: right; font-weight: bold; margin-top: 20px; }
-              .mei-codes { font-size: 0.9em; color: #666; }
+              @media print {
+                @page {
+                  size: 80mm auto;
+                  margin: 0;
+                }
+              }
+              body { 
+                font-family: 'Courier New', monospace; 
+                margin: 0; 
+                padding: 5mm;
+                font-size: 12px;
+                line-height: 1.2;
+                width: 70mm;
+              }
+              .header { 
+                text-align: center; 
+                margin-bottom: 10px;
+                border-bottom: 1px dashed #000;
+                padding-bottom: 5px;
+              }
+              .company-name {
+                font-size: 16px;
+                font-weight: bold;
+                margin-bottom: 2px;
+              }
+              .details { 
+                margin-bottom: 10px; 
+                font-size: 11px;
+              }
+              .detail-row {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 2px;
+              }
+              .products { 
+                margin-bottom: 10px;
+                border-top: 1px dashed #000;
+                border-bottom: 1px dashed #000;
+                padding: 5px 0;
+              }
+              .product-item {
+                margin-bottom: 8px;
+                font-size: 11px;
+              }
+              .product-name {
+                font-weight: bold;
+                margin-bottom: 1px;
+              }
+              .product-details {
+                font-size: 10px;
+                color: #666;
+                margin-bottom: 1px;
+              }
+              .total { 
+                text-align: center; 
+                font-weight: bold; 
+                margin-top: 10px;
+                font-size: 14px;
+                border-top: 1px dashed #000;
+                padding-top: 5px;
+              }
+              .footer {
+                text-align: center;
+                margin-top: 10px;
+                font-size: 10px;
+                border-top: 1px dashed #000;
+                padding-top: 5px;
+              }
+              .customer-info {
+                margin-bottom: 8px;
+                font-size: 11px;
+              }
             </style>
           </head>
           <body>
             <div class="header">
-              <h2>FACTURA DE VENTA</h2>
-              <p>Fecha: ${format(
-                new Date(sale.sale_date),
-                "dd/MM/yyyy HH:mm"
-              )}</p>
+              <div class="company-name">TIENDAS AXCEL</div>
+              <div>FACTURA DE VENTA</div>
             </div>
-            ${sale.customer_name || sale.customer_phone ? `
-            <div class="customer-info">
-              <h3>Información del Cliente</h3>
-              ${sale.customer_name ? `<p><strong>Nombre:</strong> ${sale.customer_name}</p>` : ''}
-              ${sale.customer_phone ? `<p><strong>Teléfono:</strong> ${sale.customer_phone}</p>` : ''}
-            </div>
-            ` : ''}
+            
             <div class="details">
-              <p><strong>Tipo de Pago:</strong> ${sale.type_of_payment}</p>
-              <p><strong>Cantidad de Productos:</strong> ${
-                sale.quantity_products
-              }</p>
-              <p><strong>Vendedor:</strong> ${sale.employee_name}</p>
-              <p><strong>Tienda:</strong> ${sale.store_name}</p>
+              <div class="detail-row">
+                <span>Fecha:</span>
+                <span>${format(new Date(sale.sale_date), "dd/MM/yyyy")}</span>
+              </div>
+              <div class="detail-row">
+                <span>Hora:</span>
+                <span>${format(new Date(sale.sale_date), "HH:mm")}</span>
+              </div>
+              <div class="detail-row">
+                <span>Vendedor:</span>
+                <span>${sale.employee_name}</span>
+              </div>
+              <div class="detail-row">
+                <span>Tienda:</span>
+                <span>${sale.store_name}</span>
+              </div>
+              <div class="detail-row">
+                <span>Pago:</span>
+                <span>${sale.type_of_payment}</span>
+              </div>
             </div>
-            <table class="products">
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th>Código de Barras</th>
-                  <th>Códigos MEI</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${sale.products
-                  .map(
-                    (product) => `
-                  <tr>
-                    <td>${product.product_name}</td>
-                    <td>${product.barcode}</td>
-                    <td class="mei-codes">${product.mei_codes.join(", ")}</td>
-                  </tr>
-                `
-                  )
-                  .join("")}
-              </tbody>
-            </table>
+
+            ${sale.customer_name || sale.customer_phone ? `
+              <div class="customer-info">
+                ${sale.customer_name ? `<div class="detail-row"><span>Cliente:</span><span>${sale.customer_name}</span></div>` : ''}
+                ${sale.customer_phone ? `<div class="detail-row"><span>Teléfono:</span><span>${sale.customer_phone}</span></div>` : ''}
+              </div>
+            ` : ''}
+            
+            <div class="products">
+              ${sale.products.map((product, index) => `
+                <div class="product-item">
+                  <div class="product-name">${index + 1}. ${product.product_name}</div>
+                  <div class="product-details">Código: ${product.barcode}</div>
+                  ${product.mei_codes.length > 0 ? `<div class="product-details">MEI: ${product.mei_codes.join(", ")}</div>` : ''}
+                </div>
+              `).join("")}
+            </div>
+            
             <div class="total">
-              <h3>Total: ${sale.total_sale} Bs.</h3>
+              TOTAL: ${sale.total_sale} Bs.
+            </div>
+            
+            <div class="footer">
+              <div>¡Gracias por su compra!</div>
+              <div>Conserve este comprobante</div>
             </div>
           </body>
         </html>
@@ -564,145 +633,196 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     }
   };
 
-  // Función para imprimir contrato de garantía
+  // Función para imprimir garantía en formato térmico
   const handlePrintWarranty = (sale: SaleHistoryItem) => {
     const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.write(`
         <html>
           <head>
-            <title>Contrato de Garantía - ${sale.id}</title>
+            <title>Garantía - ${sale.id}</title>
             <style>
-              body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
-              .header { text-align: center; margin-bottom: 30px; }
-              .contract-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
-              .customer-info { background-color: #f5f5f5; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
-              .products { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-              .products th, .products td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-              .products th { background-color: #f2f2f2; }
-              .terms { margin-top: 20px; }
-              .terms h3 { color: #333; margin-bottom: 10px; }
-              .terms ul { margin-left: 20px; }
-              .terms li { margin-bottom: 8px; }
-              .signature-section { margin-top: 40px; display: flex; justify-content: space-between; }
-              .signature-box { width: 45%; text-align: center; border-top: 1px solid #000; padding-top: 10px; }
-              .warranty-period { background-color: #e8f4fd; padding: 15px; border-left: 4px solid #2196F3; margin: 20px 0; }
-              .important-note { background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
+              @media print {
+                @page {
+                  size: 80mm auto;
+                  margin: 0;
+                }
+              }
+              body { 
+                font-family: 'Courier New', monospace; 
+                margin: 0; 
+                padding: 5mm;
+                font-size: 11px;
+                line-height: 1.3;
+                width: 70mm;
+              }
+              .header { 
+                text-align: center; 
+                margin-bottom: 10px;
+                border-bottom: 1px dashed #000;
+                padding-bottom: 5px;
+              }
+              .company-name {
+                font-size: 16px;
+                font-weight: bold;
+                margin-bottom: 2px;
+              }
+              .warranty-title {
+                font-size: 14px;
+                font-weight: bold;
+                margin-bottom: 5px;
+              }
+              .details { 
+                margin-bottom: 10px; 
+                font-size: 10px;
+              }
+              .detail-row {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 2px;
+              }
+              .products { 
+                margin-bottom: 10px;
+                border-top: 1px dashed #000;
+                border-bottom: 1px dashed #000;
+                padding: 5px 0;
+              }
+              .product-item {
+                margin-bottom: 6px;
+                font-size: 10px;
+              }
+              .product-name {
+                font-weight: bold;
+                margin-bottom: 1px;
+              }
+              .product-details {
+                font-size: 9px;
+                color: #666;
+                margin-bottom: 1px;
+              }
+              .warranty-terms {
+                font-size: 9px;
+                line-height: 1.4;
+                margin-bottom: 10px;
+                text-align: justify;
+              }
+              .warranty-terms h4 {
+                font-size: 11px;
+                margin: 8px 0 4px 0;
+                text-align: center;
+                font-weight: bold;
+              }
+              .warranty-terms ul {
+                margin: 4px 0;
+                padding-left: 12px;
+              }
+              .warranty-terms li {
+                margin-bottom: 2px;
+              }
+              .footer {
+                text-align: center;
+                margin-top: 10px;
+                font-size: 9px;
+                border-top: 1px dashed #000;
+                padding-top: 5px;
+              }
+              .customer-info {
+                margin-bottom: 8px;
+                font-size: 10px;
+              }
+              .signature-section {
+                margin-top: 15px;
+                text-align: center;
+                font-size: 9px;
+              }
+              .signature-line {
+                border-top: 1px solid #000;
+                width: 50mm;
+                margin: 10px auto 5px auto;
+              }
             </style>
           </head>
           <body>
             <div class="header">
-              <div class="contract-title">CONTRATO DE GARANTÍA DE PRODUCTO</div>
-              <p>Fecha de Emisión: ${format(new Date(sale.sale_date), "dd/MM/yyyy")}</p>
-              <p>Número de Venta: ${sale.id.substring(0, 8).toUpperCase()}</p>
+              <div class="company-name">TIENDAS AXCEL</div>
+              <div class="warranty-title">CERTIFICADO DE GARANTÍA</div>
+            </div>
+            
+            <div class="details">
+              <div class="detail-row">
+                <span>Fecha de Compra:</span>
+                <span>${format(new Date(sale.sale_date), "dd/MM/yyyy")}</span>
+              </div>
+              <div class="detail-row">
+                <span>Vendedor:</span>
+                <span>${sale.employee_name}</span>
+              </div>
+              <div class="detail-row">
+                <span>Tienda:</span>
+                <span>${sale.store_name}</span>
+              </div>
+              <div class="detail-row">
+                <span>Factura N°:</span>
+                <span>${sale.id.substring(0, 8)}</span>
+              </div>
             </div>
 
             ${sale.customer_name || sale.customer_phone ? `
-            <div class="customer-info">
-              <h3>Información del Cliente</h3>
-              ${sale.customer_name ? `<p><strong>Nombre:</strong> ${sale.customer_name}</p>` : ''}
-              ${sale.customer_phone ? `<p><strong>Teléfono:</strong> ${sale.customer_phone}</p>` : ''}
-              <p><strong>Fecha de Compra:</strong> ${format(new Date(sale.sale_date), "dd/MM/yyyy")}</p>
+              <div class="customer-info">
+                ${sale.customer_name ? `<div class="detail-row"><span>Cliente:</span><span>${sale.customer_name}</span></div>` : ''}
+                ${sale.customer_phone ? `<div class="detail-row"><span>Teléfono:</span><span>${sale.customer_phone}</span></div>` : ''}
+              </div>
+            ` : ''}
+            
+            <div class="products">
+              <h4 style="margin: 0 0 5px 0; font-size: 11px; text-align: center;">PRODUCTOS GARANTIZADOS</h4>
+              ${sale.products.map((product, index) => `
+                <div class="product-item">
+                  <div class="product-name">${index + 1}. ${product.product_name}</div>
+                  <div class="product-details">Código: ${product.barcode}</div>
+                  ${product.mei_codes.length > 0 ? `<div class="product-details">MEI: ${product.mei_codes.join(", ")}</div>` : ''}
+                </div>
+              `).join("")}
             </div>
-            ` : `
-            <div class="customer-info">
-              <h3>Información del Cliente</h3>
-              <p><strong>Nombre:</strong> _________________________________</p>
-              <p><strong>Teléfono:</strong> _________________________________</p>
-              <p><strong>Fecha de Compra:</strong> ${format(new Date(sale.sale_date), "dd/MM/yyyy")}</p>
-            </div>
-            `}
-
-            <h3>Productos Cubiertos por esta Garantía:</h3>
-            <table class="products">
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th>Código de Barras</th>
-                  <th>Códigos MEI/IMEI</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${sale.products.map(product => `
-                  <tr>
-                    <td>${product.product_name}</td>
-                    <td>${product.barcode}</td>
-                    <td>${product.mei_codes.join(", ")}</td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
-
-            <div class="warranty-period">
-              <h3>🛡️ Período de Garantía</h3>
-              <p><strong>Duración:</strong> 12 meses a partir de la fecha de compra</p>
-              <p><strong>Válido hasta:</strong> ${format(new Date(new Date(sale.sale_date).getTime() + 365 * 24 * 60 * 60 * 1000), "dd/MM/yyyy")}</p>
-            </div>
-
-            <div class="terms">
-              <h3>Términos y Condiciones de la Garantía</h3>
+            
+            <div class="warranty-terms">
+              <h4>TÉRMINOS DE GARANTÍA</h4>
               
-              <h4>✅ La garantía CUBRE:</h4>
+              <strong>COBERTURA:</strong>
               <ul>
-                <li>Defectos de fabricación del producto</li>
-                <li>Fallas en componentes internos por uso normal</li>
-                <li>Problemas de software originales del fabricante</li>
-                <li>Defectos en materiales y mano de obra</li>
+                <li>Garantía de 12 meses por defectos de fabricación</li>
+                <li>Cubre fallas en hardware y componentes internos</li>
+                <li>Incluye reparación o reemplazo sin costo</li>
               </ul>
-
-              <h4>❌ La garantía NO CUBRE:</h4>
+              
+              <strong>NO CUBRE:</strong>
               <ul>
-                <li><strong>Daños físicos causados por el cliente:</strong> caídas, golpes, líquidos derramados, etc.</li>
-                <li><strong>Daños por mal uso:</strong> uso inadecuado, modificaciones no autorizadas</li>
-                <li><strong>Desgaste normal:</strong> rayones superficiales, decoloración por uso</li>
-                <li><strong>Daños por agentes externos:</strong> humedad, calor excesivo, campos magnéticos</li>
-                <li><strong>Software instalado por terceros</strong> o modificaciones del sistema operativo</li>
-                <li><strong>Accesorios</strong> como cargadores, cables, fundas (salvo defecto de fábrica)</li>
-                <li><strong>Pérdida de datos</strong> o información almacenada en el dispositivo</li>
+                <li>Daños por caídas, golpes o mal uso</li>
+                <li>Daños por líquidos o humedad</li>
+                <li>Pantalla rota o rayada por uso</li>
+                <li>Daños por software de terceros</li>
+                <li>Desgaste normal por uso</li>
               </ul>
-            </div>
-
-            <div class="important-note">
-              <h3>⚠️ Importante</h3>
-              <p>Para hacer efectiva la garantía, el cliente debe presentar:</p>
+              
+              <strong>CONDICIONES:</strong>
               <ul>
-                <li>Este contrato de garantía</li>
-                <li>Factura o comprobante de compra</li>
-                <li>El producto en su estado original (sin modificaciones)</li>
+                <li>Presentar este certificado y factura</li>
+                <li>Producto sin alteraciones físicas</li>
+                <li>Evaluación técnica previa</li>
+                <li>Tiempo de reparación: 15-30 días</li>
               </ul>
-              <p><strong>La garantía será evaluada por nuestro equipo técnico y está sujeta a los términos aquí establecidos.</strong></p>
             </div>
-
-            <div class="terms">
-              <h3>Proceso de Garantía</h3>
-              <ol>
-                <li>Contactar a la tienda donde se realizó la compra</li>
-                <li>Presentar este contrato y la factura de compra</li>
-                <li>Evaluación técnica del producto (2-5 días hábiles)</li>
-                <li>Reparación, reemplazo o reembolso según corresponda</li>
-              </ol>
-            </div>
-
-            <div style="margin-top: 30px;">
-              <p><strong>Tienda:</strong> ${sale.store_name}</p>
-              <p><strong>Vendedor:</strong> ${sale.employee_name}</p>
-              <p><strong>Total de la Compra:</strong> ${sale.total_sale} Bs.</p>
-            </div>
-
+            
             <div class="signature-section">
-              <div class="signature-box">
-                <p>Firma del Cliente</p>
-                <p>Fecha: _______________</p>
-              </div>
-              <div class="signature-box">
-                <p>Firma del Vendedor</p>
-                <p>Fecha: ${format(new Date(), "dd/MM/yyyy")}</p>
-              </div>
+              <div class="signature-line"></div>
+              <div>Firma del Cliente</div>
+              <div style="margin-top: 8px;">Acepto términos y condiciones</div>
             </div>
-
-            <div style="text-align: center; margin-top: 30px; font-size: 12px; color: #666;">
-              <p>Este contrato de garantía es válido únicamente para los productos especificados arriba.</p>
-              <p>Para consultas sobre garantía, contactar a la tienda de compra.</p>
+            
+            <div class="footer">
+              <div><strong>TIENDAS AXCEL</strong></div>
+              <div>Garantía válida en territorio nacional</div>
+              <div>Conserve este documento</div>
             </div>
           </body>
         </html>
@@ -863,6 +983,34 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         </div>
 
         <div className="space-y-6">
+          {/* Información del cliente */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nombre del Cliente (Opcional)
+              </label>
+              <input
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Ingrese el nombre del cliente"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Teléfono del Cliente (Opcional)
+              </label>
+              <input
+                type="tel"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                placeholder="Ingrese el teléfono del cliente"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          </div>
+
           {/* Búsqueda de productos */}
           <div className="relative">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 mb-4">
@@ -922,46 +1070,20 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
             )}
           </div>
 
-          {/* Información del cliente y tipo de pago */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre del Cliente (Opcional)
-              </label>
-              <input
-                type="text"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Ingrese el nombre del cliente"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Teléfono del Cliente (Opcional)
-              </label>
-              <input
-                type="tel"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-                placeholder="Ingrese el teléfono del cliente"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo de Pago
-              </label>
-              <select
-                value={paymentType}
-                onChange={(e) => setPaymentType(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="efectivo">Efectivo</option>
-                <option value="tarjeta">Tarjeta</option>
-                <option value="transferencia">Transferencia</option>
-              </select>
-            </div>
+          {/* Tipo de pago */}
+          <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mb-4">
+            <label className="text-sm font-medium text-gray-700">
+              Tipo de Pago:
+            </label>
+            <select
+              value={paymentType}
+              onChange={(e) => setPaymentType(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="efectivo">Efectivo</option>
+              <option value="tarjeta">Tarjeta</option>
+              <option value="transferencia">Transferencia</option>
+            </select>
           </div>
 
           {/* Productos seleccionados */}
@@ -1206,12 +1328,12 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {format(new Date(sale.sale_date), "dd/MM/yyyy HH:mm")}
                     </td>
-                    <td className="px-6 py-4 text-sm">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {editingSale === sale.id ? (
                         <div className="space-y-2">
                           <input
                             type="text"
-                            value={editFormData.customer_name || ''}
+                            value={editFormData.customer_name || ""}
                             onChange={(e) =>
                               setEditFormData({
                                 ...editFormData,
@@ -1223,7 +1345,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                           />
                           <input
                             type="tel"
-                            value={editFormData.customer_phone || ''}
+                            value={editFormData.customer_phone || ""}
                             onChange={(e) =>
                               setEditFormData({
                                 ...editFormData,
@@ -1235,16 +1357,13 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                           />
                         </div>
                       ) : (
-                        <div className="text-sm">
-                          {sale.customer_name && (
-                            <div className="font-medium">{sale.customer_name}</div>
-                          )}
-                          {sale.customer_phone && (
-                            <div className="text-gray-500">{sale.customer_phone}</div>
-                          )}
-                          {!sale.customer_name && !sale.customer_phone && (
-                            <span className="text-gray-400 italic">Sin información</span>
-                          )}
+                        <div>
+                          <div className="font-medium">
+                            {sale.customer_name || "Sin nombre"}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {sale.customer_phone || "Sin teléfono"}
+                          </div>
                         </div>
                       )}
                     </td>
@@ -1372,7 +1491,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                       ) : (
                         <div className="flex space-x-2">
                           <button
-                            onClick={() => handlePrintSale(sale)}
+                            onClick={() => handlePrintInvoice(sale)}
                             className="text-blue-600 hover:text-blue-900"
                             title="Imprimir Factura"
                           >
@@ -1442,7 +1561,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                     ) : (
                       <>
                         <button
-                          onClick={() => handlePrintSale(sale)}
+                          onClick={() => handlePrintInvoice(sale)}
                           className="text-blue-600 hover:text-blue-900"
                           title="Imprimir Factura"
                         >
@@ -1472,46 +1591,14 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                 <div className="space-y-2 text-sm">
                   <div>
                     <span className="text-gray-600">Cliente:</span>
-                    {editingSale === sale.id ? (
-                      <div className="mt-1 space-y-1">
-                        <input
-                          type="text"
-                          value={editFormData.customer_name || ''}
-                          onChange={(e) =>
-                            setEditFormData({
-                              ...editFormData,
-                              customer_name: e.target.value,
-                            })
-                          }
-                          placeholder="Nombre del cliente"
-                          className="border rounded px-2 py-1 text-xs w-full"
-                        />
-                        <input
-                          type="tel"
-                          value={editFormData.customer_phone || ''}
-                          onChange={(e) =>
-                            setEditFormData({
-                              ...editFormData,
-                              customer_phone: e.target.value,
-                            })
-                          }
-                          placeholder="Teléfono del cliente"
-                          className="border rounded px-2 py-1 text-xs w-full"
-                        />
+                    <div className="mt-1">
+                      <div className="font-medium">
+                        {sale.customer_name || "Sin nombre"}
                       </div>
-                    ) : (
-                      <div className="mt-1">
-                        {sale.customer_name && (
-                          <div className="font-medium">{sale.customer_name}</div>
-                        )}
-                        {sale.customer_phone && (
-                          <div className="text-gray-500">{sale.customer_phone}</div>
-                        )}
-                        {!sale.customer_name && !sale.customer_phone && (
-                          <span className="text-gray-400 italic">Sin información</span>
-                        )}
+                      <div className="text-xs text-gray-500">
+                        {sale.customer_phone || "Sin teléfono"}
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   <div>
