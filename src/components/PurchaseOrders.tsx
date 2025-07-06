@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, AlertTriangle, Check, ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, AlertTriangle, Check, ArrowLeftIcon, ArrowRightIcon, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import toast, { Toaster } from 'react-hot-toast';
@@ -22,6 +22,15 @@ interface PurchaseOrderItem {
   product_id: string;
   quantity: number;
   total_price: number;
+}
+
+interface PurchaseOrderPayment {
+  id: string;
+  order_id: string;
+  payment_date: string;
+  amount: number;
+  payment_method: string;
+  employee_id: string;
 }
 
 interface Supplier {
@@ -51,8 +60,11 @@ export const PurchaseOrders: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [reminders, setReminders] = useState<PurchaseOrderReminder[]>([]);
+  const [payments, setPayments] = useState<PurchaseOrderPayment[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState<PurchaseOrder | null>(null);
+  const [selectedOrderForPayment, setSelectedOrderForPayment] = useState<PurchaseOrder | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
   
@@ -69,6 +81,12 @@ export const PurchaseOrders: React.FC = () => {
     status: 'pending' as const,
     price_unit: 0,
     items: [] as { product_id: string; quantity: number; total_price: number }[]
+  });
+
+  // Estados del formulario de pago
+  const [paymentData, setPaymentData] = useState({
+    amount: 0,
+    payment_method: 'efectivo'
   });
 
   useEffect(() => {
@@ -118,6 +136,15 @@ export const PurchaseOrders: React.FC = () => {
 
       if (remindersError) throw remindersError;
       setReminders(remindersData || []);
+
+      // Fetch payments
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('purchase_order_payments')
+        .select('*')
+        .order('payment_date', { ascending: false });
+
+      if (paymentsError) throw paymentsError;
+      setPayments(paymentsData || []);
 
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -221,6 +248,54 @@ export const PurchaseOrders: React.FC = () => {
     }
   };
 
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedOrderForPayment || !currentEmployee) {
+      toast.error('Error en los datos del pago');
+      return;
+    }
+
+    try {
+      // Insert payment
+      const { error: paymentError } = await supabase
+        .from('purchase_order_payments')
+        .insert([{
+          id: crypto.randomUUID(),
+          order_id: selectedOrderForPayment.id,
+          amount: paymentData.amount,
+          payment_method: paymentData.payment_method,
+          employee_id: currentEmployee.id,
+          payment_date: new Date().toISOString()
+        }]);
+
+      if (paymentError) throw paymentError;
+
+      // Update order paid amount and balance
+      const newPaidAmount = selectedOrderForPayment.paid_amount + paymentData.amount;
+      const newBalance = selectedOrderForPayment.total_amount - newPaidAmount;
+
+      const { error: updateError } = await supabase
+        .from('purchase_orders')
+        .update({
+          paid_amount: newPaidAmount,
+          balance_due: newBalance
+        })
+        .eq('id', selectedOrderForPayment.id);
+
+      if (updateError) throw updateError;
+
+      toast.success('Pago registrado exitosamente');
+      setShowPaymentForm(false);
+      setSelectedOrderForPayment(null);
+      setPaymentData({ amount: 0, payment_method: 'efectivo' });
+      fetchData();
+    } catch (error) {
+      console.error('Error saving payment:', error);
+      toast.error('Error al registrar el pago');
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       supplier_id: '',
@@ -247,11 +322,23 @@ export const PurchaseOrders: React.FC = () => {
     setShowForm(true);
   };
 
+  const handleAddPayment = (order: PurchaseOrder) => {
+    setSelectedOrderForPayment(order);
+    setPaymentData({ amount: 0, payment_method: 'efectivo' });
+    setShowPaymentForm(true);
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm('¿Está seguro de eliminar esta orden?')) return;
 
     try {
-      // Delete items first
+      // Delete payments first
+      await supabase
+        .from('purchase_order_payments')
+        .delete()
+        .eq('order_id', id);
+
+      // Delete items
       await supabase
         .from('purchase_order_items')
         .delete()
@@ -329,6 +416,10 @@ export const PurchaseOrders: React.FC = () => {
     return product ? `${product.name} - ${product.color}` : 'Producto no encontrado';
   };
 
+  const getOrderPayments = (orderId: string) => {
+    return payments.filter(p => p.order_id === orderId);
+  };
+
   const filteredOrders = orders.filter(order => {
     const supplierName = getSupplierName(order.supplier_id).toLowerCase();
     const searchLower = searchTerm.toLowerCase();
@@ -381,6 +472,87 @@ export const PurchaseOrders: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Formulario de pago */}
+      {showPaymentForm && selectedOrderForPayment && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold">
+              Registrar Pago - {getSupplierName(selectedOrderForPayment.supplier_id)}
+            </h2>
+            <button
+              onClick={() => {
+                setShowPaymentForm(false);
+                setSelectedOrderForPayment(null);
+              }}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              Cancelar
+            </button>
+          </div>
+
+          <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <span className="text-gray-600">Total de la orden:</span>
+                <p className="font-medium">{selectedOrderForPayment.total_amount} Bs.</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Ya pagado:</span>
+                <p className="font-medium">{selectedOrderForPayment.paid_amount} Bs.</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Saldo pendiente:</span>
+                <p className="font-medium text-red-600">{selectedOrderForPayment.balance_due} Bs.</p>
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={handlePaymentSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Monto del Pago
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  max={selectedOrderForPayment.balance_due}
+                  value={paymentData.amount}
+                  onChange={(e) => setPaymentData(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Método de Pago
+                </label>
+                <select
+                  value={paymentData.payment_method}
+                  onChange={(e) => setPaymentData(prev => ({ ...prev, payment_method: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                >
+                  <option value="efectivo">Efectivo</option>
+                  <option value="transferencia">Transferencia</option>
+                  <option value="cheque">Cheque</option>
+                  <option value="tarjeta">Tarjeta</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Registrar Pago
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
@@ -450,7 +622,7 @@ export const PurchaseOrders: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Monto Pagado
+                  Monto Pagado Inicial
                 </label>
                 <input
                   type="number"
@@ -647,7 +819,9 @@ export const PurchaseOrders: React.FC = () => {
                       {order.paid_amount} Bs.
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {order.balance_due} Bs.
+                      <span className={order.balance_due > 0 ? 'text-red-600 font-medium' : 'text-green-600'}>
+                        {order.balance_due} Bs.
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -662,18 +836,31 @@ export const PurchaseOrders: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleEdit(order)}
-                        className="text-blue-600 hover:text-blue-900 mr-3"
-                      >
-                        <Edit2 size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(order.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      <div className="flex justify-end space-x-2">
+                        {order.balance_due > 0 && (
+                          <button
+                            onClick={() => handleAddPayment(order)}
+                            className="text-green-600 hover:text-green-800"
+                            title="Agregar Pago"
+                          >
+                            <DollarSign size={16} />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleEdit(order)}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Editar"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(order.id)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Eliminar"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -719,11 +906,23 @@ export const PurchaseOrders: React.FC = () => {
                     <span className="text-gray-600">Pagado:</span> {order.paid_amount} Bs.
                   </div>
                   <div>
-                    <span className="text-gray-600">Saldo:</span> {order.balance_due} Bs.
+                    <span className="text-gray-600">Saldo:</span> 
+                    <span className={order.balance_due > 0 ? 'text-red-600 font-medium' : 'text-green-600'}>
+                      {order.balance_due} Bs.
+                    </span>
                   </div>
                 </div>
                 
                 <div className="flex justify-end space-x-2 mt-4">
+                  {order.balance_due > 0 && (
+                    <button
+                      onClick={() => handleAddPayment(order)}
+                      className="text-green-600 hover:text-green-800"
+                      title="Agregar Pago"
+                    >
+                      <DollarSign size={18} />
+                    </button>
+                  )}
                   <button
                     onClick={() => handleEdit(order)}
                     className="text-blue-600 hover:text-blue-800"
@@ -737,6 +936,20 @@ export const PurchaseOrders: React.FC = () => {
                     <Trash2 size={18} />
                   </button>
                 </div>
+
+                {/* Mostrar historial de pagos si existen */}
+                {getOrderPayments(order.id).length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Historial de Pagos:</h4>
+                    <div className="space-y-1">
+                      {getOrderPayments(order.id).map((payment) => (
+                        <div key={payment.id} className="text-xs text-gray-600">
+                          {format(new Date(payment.payment_date), 'dd/MM/yyyy')} - {payment.amount} Bs. ({payment.payment_method})
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
             

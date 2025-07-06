@@ -108,10 +108,15 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         const employee = JSON.parse(employeeData);
         setCurrentEmployee(employee);
 
+        // Cargar tiendas
+        const { data: storesData } = await supabase.from("stores").select("*");
+        setStores(storesData || []);
+
         if (employee.position === "administrador") {
-          const { data: storesData } = await supabase.from("stores").select("*");
-          setStores(storesData || []);
+          // Para admin: no seleccionar tienda automáticamente, mostrar todas las ventas
+          setSelectedStore(""); // Esto permitirá ver ventas de todas las tiendas
         } else {
+          // Para empleados de ventas: seleccionar su tienda automáticamente
           setSelectedStore(employee.store_id);
         }
       }
@@ -120,13 +125,17 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     fetchInitialData();
   }, []);
 
-  // Cargar productos cuando cambie la tienda
+  // Cargar productos cuando cambie la tienda (solo para formulario de venta)
   useEffect(() => {
     if (selectedStore) {
       fetchAvailableProducts();
-      fetchSalesHistory();
     }
-  }, [selectedStore, offset]);
+  }, [selectedStore]);
+
+  // Cargar historial de ventas
+  useEffect(() => {
+    fetchSalesHistory();
+  }, [offset, currentEmployee]);
 
   // Calcular total automáticamente
   useEffect(() => {
@@ -173,7 +182,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   };
 
   const fetchSalesHistory = async () => {
-    if (!selectedStore) return;
+    if (!currentEmployee) return;
 
     try {
       let query = supabase
@@ -194,9 +203,11 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         .order("sale_date", { ascending: false })
         .range(offset, offset + limitItems - 1);
 
-      if (currentEmployee?.position !== "administrador") {
-        query = query.eq("store_id", selectedStore);
+      // Solo filtrar por tienda si es empleado de ventas
+      if (currentEmployee.position !== "administrador") {
+        query = query.eq("store_id", currentEmployee.store_id);
       }
+      // Para administradores: mostrar ventas de todas las tiendas (sin filtro adicional)
 
       const { data, error } = await query;
 
@@ -588,11 +599,11 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
             </p>
           </div>
           
-          {currentEmployee?.position === "administrador" ? (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tienda:
-              </label>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tienda:
+            </label>
+            {currentEmployee?.position === "administrador" ? (
               <select
                 value={selectedStore}
                 onChange={(e) => setSelectedStore(e.target.value)}
@@ -605,15 +616,12 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                   </option>
                 ))}
               </select>
-            </div>
-          ) : (
-            <div>
-              <p className="text-sm text-gray-600">Tienda:</p>
+            ) : (
               <p className="font-medium">
                 {stores.find(s => s.id === selectedStore)?.name || 'Cargando...'}
               </p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Búsqueda de productos */}
@@ -817,7 +825,10 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="p-4 md:p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold">Historial de Ventas</h2>
+            <h2 className="text-xl font-semibold">
+              Historial de Ventas
+              {currentEmployee?.position === "administrador" && " (Todas las tiendas)"}
+            </h2>
             <div>
               <span>Mostrando {salesHistory.length} Ventas</span>
               <div className="flex items-center gap-4 justify-center mt-4">
