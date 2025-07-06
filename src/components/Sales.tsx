@@ -941,7 +941,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   return (
     <>
       <section className="bg-white rounded-lg shadow p-4 md:p-6">
-        <h2 className="text-xl font-semibold mb-6">Ventas</h2>
+        <h2 className="text-xl font-semibold mb-6">Nueva Venta</h2>
         <Toaster />
 
         {/* Información del empleado */}
