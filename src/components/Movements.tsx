@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { supabase } from "../lib/supabase";
-import { Calendar, Download } from "lucide-react";
+import { Calendar, Download, ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import Logo from "../assets/LOGO.png";
@@ -32,11 +32,22 @@ export const Movements: React.FC = () => {
   const [endDate, setEndDate] = useState<string>("");
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState<boolean>(true);
+  
+  // Estados de paginación
+  const [offset, setOffset] = useState(0);
+  const [limitItems] = useState(5);
+  const [hasMore, setHasMore] = useState(true);
+
   // Fetch data
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+
+        // Establecer fecha actual como predeterminada si no hay fechas seleccionadas
+        const currentDate = format(new Date(), "yyyy-MM-dd");
+        const effectiveStartDate = startDate || currentDate;
+        const effectiveEndDate = endDate || currentDate;
 
         const [
           { data: salesData },
@@ -49,9 +60,27 @@ export const Movements: React.FC = () => {
           { data: saleItemsData },
           { data: transferItemsData },
         ] = await Promise.all([
-          supabase.from("sales").select("*"),
-          supabase.from("transfers").select("*"),
-          supabase.from("purchase_orders").select("*"),
+          supabase
+            .from("sales")
+            .select("*")
+            .gte("sale_date", `${effectiveStartDate}T00:00:00`)
+            .lte("sale_date", `${effectiveEndDate}T23:59:59`)
+            .order("sale_date", { ascending: false })
+            .range(offset, offset + limitItems - 1),
+          supabase
+            .from("transfers")
+            .select("*")
+            .gte("transfer_date", `${effectiveStartDate}T00:00:00`)
+            .lte("transfer_date", `${effectiveEndDate}T23:59:59`)
+            .order("transfer_date", { ascending: false })
+            .range(offset, offset + limitItems - 1),
+          supabase
+            .from("purchase_orders")
+            .select("*")
+            .gte("order_date", `${effectiveStartDate}T00:00:00`)
+            .lte("order_date", `${effectiveEndDate}T23:59:59`)
+            .order("order_date", { ascending: false })
+            .range(offset, offset + limitItems - 1),
           supabase.from("purchase_order_items").select("*"),
           supabase.from("products").select("*"),
           supabase.from("stores").select("*"),
@@ -75,6 +104,10 @@ export const Movements: React.FC = () => {
         setPurchaseOrderItems(purchaseItemsData || []);
         setSaleItems(saleItemsData || []);
         setTransferItems(transferItemsData || []);
+
+        // Determinar si hay más datos
+        const totalItems = (salesData?.length || 0) + (transfersData?.length || 0) + (purchaseData?.length || 0);
+        setHasMore(totalItems === limitItems);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -82,7 +115,7 @@ export const Movements: React.FC = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [offset, startDate, endDate]);
 
   // Helper functions
   const getProductName = (id: string) => {
@@ -133,31 +166,6 @@ export const Movements: React.FC = () => {
       console.error("Error al formatear fecha:", error);
       return "Fecha inválida";
     }
-  };
-
-  // Función para filtrar por fechas
-  const isDateInRange = (dateString: string) => {
-    // Si no hay fechas seleccionadas, filtrar por fecha actual
-    if (!startDate && !endDate) {
-      const currentDate = format(new Date(), "yyyy-MM-dd");
-      const movementDate = format(new Date(dateString), "yyyy-MM-dd");
-      return movementDate === currentDate;
-    }
-
-    // Resto de la lógica de filtrado...
-    const date = new Date(dateString);
-    const start = startDate ? new Date(startDate) : null;
-    const end = endDate ? new Date(endDate + "T23:59:59") : null;
-
-    if (start && end) {
-      return date >= start && date <= end;
-    } else if (start) {
-      return date >= start;
-    } else if (end) {
-      return date <= end;
-    }
-
-    return true;
   };
 
   // Prepare movements data with proper filtering
@@ -265,10 +273,6 @@ export const Movements: React.FC = () => {
           );
         }
       }
-      // Filtro por fecha
-      if (!isDateInRange(movement.date)) {
-        return false;
-      }
       return true;
     })
     // Ordenar por fecha descendente
@@ -286,6 +290,7 @@ export const Movements: React.FC = () => {
         return "";
     }
   };
+
   // Función para generar PDF
   const generatePDF = () => {
     const doc = new jsPDF({
@@ -329,7 +334,12 @@ export const Movements: React.FC = () => {
         movement.type === "sales" ? "Venta" : "Transferencia",
         movement.items.map((item) => item.productName).join(", "),
         movement.items
-          .map((item) => item.barcode)
+          .map((item, index) => {
+            if (item.mei_codes && item.mei_codes.length > 0) {
+              return item.mei_codes.map((mei, meiIndex) => `MEI${meiIndex + 1}: ${mei}`).join(", ");
+            }
+            return item.barcode;
+          })
           .filter((b) => b !== "N/A")
           .join(", ") || "N/A",
         generateDetails(movement),
@@ -370,6 +380,7 @@ export const Movements: React.FC = () => {
       <div className="flex justify-center items-center h-64">Cargando...</div>
     );
   }
+
   return (
     <div className="space-y-6">
       {/* Filtros */}
@@ -464,6 +475,7 @@ export const Movements: React.FC = () => {
               setSelectedType("all");
               setStartDate("");
               setEndDate("");
+              setOffset(0);
             }}
             className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
           >
@@ -475,9 +487,38 @@ export const Movements: React.FC = () => {
       {/* Tabla de movimientos - Vista escritorio */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="p-4 md:p-6">
-          <h2 className="text-xl font-semibold mb-4">
-            Movimientos ({filteredMovements.length})
-          </h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold">
+              Movimientos ({filteredMovements.length})
+            </h2>
+            <div>
+              <span>Mostrando {filteredMovements.length} Movimientos</span>
+              <div className="flex items-center gap-4 justify-center mt-4">
+                <button
+                  disabled={offset === 0}
+                  onClick={() => setOffset(offset - limitItems)}
+                  className={`p-2 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors ${
+                    offset === 0
+                      ? "opacity-50 cursor-not-allowed"
+                      : "cursor-pointer"
+                  }`}
+                >
+                  <ArrowLeftIcon size={20} />
+                </button>
+                <button
+                  disabled={!hasMore}
+                  onClick={() => setOffset(offset + limitItems)}
+                  className={`p-2 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors ${
+                    !hasMore
+                      ? "opacity-50 cursor-not-allowed"
+                      : "cursor-pointer"
+                  }`}
+                >
+                  <ArrowRightIcon size={20} />
+                </button>
+              </div>
+            </div>
+          </div>
 
           {/* Vista de tabla para escritorio */}
           <div className="hidden lg:block overflow-x-auto">
@@ -494,7 +535,7 @@ export const Movements: React.FC = () => {
                     Producto Principal
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Códigos de Barras
+                    Códigos de Barras/MEI
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Detalles
@@ -538,9 +579,17 @@ export const Movements: React.FC = () => {
                             : "Sin productos"}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
-                          {movement.items.length > 0
-                            ? movement.items[0].barcode
-                            : "N/A"}
+                          {movement.items.length > 0 ? (
+                            movement.items[0].mei_codes && movement.items[0].mei_codes.length > 0 ? (
+                              movement.items[0].mei_codes.map((mei, index) => (
+                                <div key={index}>MEI{index + 1}: {mei}</div>
+                              ))
+                            ) : (
+                              movement.items[0].barcode
+                            )
+                          ) : (
+                            "N/A"
+                          )}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
                           {movement.type === "sales" && (
@@ -605,8 +654,9 @@ export const Movements: React.FC = () => {
                                       {item.mei_codes &&
                                         item.mei_codes.length > 0 && (
                                           <div className="text-sm text-gray-600">
-                                            Códigos MEI:{" "}
-                                            {item.mei_codes.join(", ")}
+                                            {item.mei_codes.map((mei: string, meiIndex: number) => (
+                                              <div key={meiIndex}>MEI{meiIndex + 1}: {mei}</div>
+                                            ))}
                                           </div>
                                         )}
                                       {item.quantity && (
@@ -681,10 +731,18 @@ export const Movements: React.FC = () => {
                     </div>
 
                     <div>
-                      <span className="text-gray-600">Código de barras:</span>{" "}
-                      {movement.items.length > 0
-                        ? movement.items[0].barcode
-                        : "N/A"}
+                      <span className="text-gray-600">Códigos:</span>{" "}
+                      {movement.items.length > 0 ? (
+                        movement.items[0].mei_codes && movement.items[0].mei_codes.length > 0 ? (
+                          movement.items[0].mei_codes.map((mei, index) => (
+                            <div key={index}>MEI{index + 1}: {mei}</div>
+                          ))
+                        ) : (
+                          movement.items[0].barcode
+                        )
+                      ) : (
+                        "N/A"
+                      )}
                     </div>
 
                     {movement.type === "sales" && (
@@ -751,7 +809,9 @@ export const Movements: React.FC = () => {
                             </div>
                             {item.mei_codes && item.mei_codes.length > 0 && (
                               <div className="text-gray-600">
-                                Códigos MEI: {item.mei_codes.join(", ")}
+                                {item.mei_codes.map((mei: string, meiIndex: number) => (
+                                  <div key={meiIndex}>MEI{meiIndex + 1}: {mei}</div>
+                                ))}
                               </div>
                             )}
                             {item.quantity && (
