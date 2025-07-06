@@ -65,16 +65,24 @@ function App() {
         console.error("Error fetching employees:", employeesError);
       else setEmployees(employeesData || []);
 
-      // Cargar último tipo de cambio
-      const { data: ratesData, error: ratesError } = await supabase
-        .from("exchange_rates")
-        .select("rate")
-        .order("created_at", { ascending: false })
-        .limit(1);
+      // Cargar último tipo de cambio con manejo de errores
+      try {
+        const { data: ratesData, error: ratesError } = await supabase
+          .from("exchange_rates")
+          .select("rate")
+          .order("created_at", { ascending: false })
+          .limit(1);
 
-      if (ratesError)
-        console.error("Error fetching exchange rate:", ratesError);
-      else if (ratesData.length > 0) setExchangeRate(ratesData[0].rate);
+        if (ratesError) {
+          console.error("Error fetching exchange rate:", ratesError);
+          // Mantener el valor por defecto si hay error
+        } else if (ratesData && ratesData.length > 0) {
+          setExchangeRate(ratesData[0].rate);
+        }
+      } catch (error) {
+        console.error("Error fetching exchange rate:", error);
+        // Mantener el valor por defecto si hay error de conexión
+      }
     };
 
     fetchData();
