@@ -11,6 +11,7 @@ import {
   X,
   Plus,
   Minus,
+  FileText,
 } from "lucide-react";
 import { useScanner, useAutoSelectProduct } from "../hooks/useScanner";
 
@@ -26,6 +27,8 @@ interface SaleHistoryItem {
   quantity_products: number;
   employee_name: string;
   store_name: string;
+  customer_name?: string;
+  customer_phone?: string;
   products: {
     product_name: string;
     barcode: string;
@@ -40,6 +43,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const [salesHistory, setSalesHistory] = useState<SaleHistoryItem[]>([]);
   const [totalSale, setTotalSale] = useState<number>(0);
   const [paymentType, setPaymentType] = useState<string>("efectivo");
+  const [customerName, setCustomerName] = useState<string>("");
+  const [customerPhone, setCustomerPhone] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
   const [editingSale, setEditingSale] = useState<string | null>(null);
@@ -317,6 +322,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           type_of_payment: paymentType,
           quantity_products: selectedProducts.length,
           sale_date: new Date().toISOString(),
+          customer_name: customerName.trim() || null,
+          customer_phone: customerPhone.trim() || null,
         },
       ]);
 
@@ -354,6 +361,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       setSelectedProducts([]);
       setTotalSale(0);
       setPaymentType("efectivo");
+      setCustomerName("");
+      setCustomerPhone("");
       setMeiCodes({});
       setShowMeiInput({});
 
@@ -396,6 +405,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           type_of_payment,
           quantity_products,
           store_id,
+          customer_name,
+          customer_phone,
           employees!employee_id (first_name, last_name),
           stores!store_id (name)
         `
@@ -443,6 +454,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               total_sale: sale.total_sale,
               type_of_payment: sale.type_of_payment || "",
               quantity_products: sale.quantity_products || 0,
+              customer_name: sale.customer_name || "",
+              customer_phone: sale.customer_phone || "",
               employee_name: sale.employees
                 ? `${sale.employees.first_name} ${
                     sale.employees.last_name || ""
@@ -487,6 +500,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               body { font-family: Arial, sans-serif; margin: 20px; }
               .header { text-align: center; margin-bottom: 20px; }
               .details { margin-bottom: 20px; }
+              .customer-info { background-color: #f5f5f5; padding: 10px; margin-bottom: 20px; border-radius: 5px; }
               .products { width: 100%; border-collapse: collapse; }
               .products th, .products td { border: 1px solid #ddd; padding: 8px; text-align: left; }
               .products th { background-color: #f2f2f2; }
@@ -502,6 +516,13 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                 "dd/MM/yyyy HH:mm"
               )}</p>
             </div>
+            ${sale.customer_name || sale.customer_phone ? `
+            <div class="customer-info">
+              <h3>Información del Cliente</h3>
+              ${sale.customer_name ? `<p><strong>Nombre:</strong> ${sale.customer_name}</p>` : ''}
+              ${sale.customer_phone ? `<p><strong>Teléfono:</strong> ${sale.customer_phone}</p>` : ''}
+            </div>
+            ` : ''}
             <div class="details">
               <p><strong>Tipo de Pago:</strong> ${sale.type_of_payment}</p>
               <p><strong>Cantidad de Productos:</strong> ${
@@ -543,6 +564,154 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     }
   };
 
+  // Función para imprimir contrato de garantía
+  const handlePrintWarranty = (sale: SaleHistoryItem) => {
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Contrato de Garantía - ${sale.id}</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+              .header { text-align: center; margin-bottom: 30px; }
+              .contract-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+              .customer-info { background-color: #f5f5f5; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
+              .products { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+              .products th, .products td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+              .products th { background-color: #f2f2f2; }
+              .terms { margin-top: 20px; }
+              .terms h3 { color: #333; margin-bottom: 10px; }
+              .terms ul { margin-left: 20px; }
+              .terms li { margin-bottom: 8px; }
+              .signature-section { margin-top: 40px; display: flex; justify-content: space-between; }
+              .signature-box { width: 45%; text-align: center; border-top: 1px solid #000; padding-top: 10px; }
+              .warranty-period { background-color: #e8f4fd; padding: 15px; border-left: 4px solid #2196F3; margin: 20px 0; }
+              .important-note { background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <div class="contract-title">CONTRATO DE GARANTÍA DE PRODUCTO</div>
+              <p>Fecha de Emisión: ${format(new Date(sale.sale_date), "dd/MM/yyyy")}</p>
+              <p>Número de Venta: ${sale.id.substring(0, 8).toUpperCase()}</p>
+            </div>
+
+            ${sale.customer_name || sale.customer_phone ? `
+            <div class="customer-info">
+              <h3>Información del Cliente</h3>
+              ${sale.customer_name ? `<p><strong>Nombre:</strong> ${sale.customer_name}</p>` : ''}
+              ${sale.customer_phone ? `<p><strong>Teléfono:</strong> ${sale.customer_phone}</p>` : ''}
+              <p><strong>Fecha de Compra:</strong> ${format(new Date(sale.sale_date), "dd/MM/yyyy")}</p>
+            </div>
+            ` : `
+            <div class="customer-info">
+              <h3>Información del Cliente</h3>
+              <p><strong>Nombre:</strong> _________________________________</p>
+              <p><strong>Teléfono:</strong> _________________________________</p>
+              <p><strong>Fecha de Compra:</strong> ${format(new Date(sale.sale_date), "dd/MM/yyyy")}</p>
+            </div>
+            `}
+
+            <h3>Productos Cubiertos por esta Garantía:</h3>
+            <table class="products">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Código de Barras</th>
+                  <th>Códigos MEI/IMEI</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${sale.products.map(product => `
+                  <tr>
+                    <td>${product.product_name}</td>
+                    <td>${product.barcode}</td>
+                    <td>${product.mei_codes.join(", ")}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+
+            <div class="warranty-period">
+              <h3>🛡️ Período de Garantía</h3>
+              <p><strong>Duración:</strong> 12 meses a partir de la fecha de compra</p>
+              <p><strong>Válido hasta:</strong> ${format(new Date(new Date(sale.sale_date).getTime() + 365 * 24 * 60 * 60 * 1000), "dd/MM/yyyy")}</p>
+            </div>
+
+            <div class="terms">
+              <h3>Términos y Condiciones de la Garantía</h3>
+              
+              <h4>✅ La garantía CUBRE:</h4>
+              <ul>
+                <li>Defectos de fabricación del producto</li>
+                <li>Fallas en componentes internos por uso normal</li>
+                <li>Problemas de software originales del fabricante</li>
+                <li>Defectos en materiales y mano de obra</li>
+              </ul>
+
+              <h4>❌ La garantía NO CUBRE:</h4>
+              <ul>
+                <li><strong>Daños físicos causados por el cliente:</strong> caídas, golpes, líquidos derramados, etc.</li>
+                <li><strong>Daños por mal uso:</strong> uso inadecuado, modificaciones no autorizadas</li>
+                <li><strong>Desgaste normal:</strong> rayones superficiales, decoloración por uso</li>
+                <li><strong>Daños por agentes externos:</strong> humedad, calor excesivo, campos magnéticos</li>
+                <li><strong>Software instalado por terceros</strong> o modificaciones del sistema operativo</li>
+                <li><strong>Accesorios</strong> como cargadores, cables, fundas (salvo defecto de fábrica)</li>
+                <li><strong>Pérdida de datos</strong> o información almacenada en el dispositivo</li>
+              </ul>
+            </div>
+
+            <div class="important-note">
+              <h3>⚠️ Importante</h3>
+              <p>Para hacer efectiva la garantía, el cliente debe presentar:</p>
+              <ul>
+                <li>Este contrato de garantía</li>
+                <li>Factura o comprobante de compra</li>
+                <li>El producto en su estado original (sin modificaciones)</li>
+              </ul>
+              <p><strong>La garantía será evaluada por nuestro equipo técnico y está sujeta a los términos aquí establecidos.</strong></p>
+            </div>
+
+            <div class="terms">
+              <h3>Proceso de Garantía</h3>
+              <ol>
+                <li>Contactar a la tienda donde se realizó la compra</li>
+                <li>Presentar este contrato y la factura de compra</li>
+                <li>Evaluación técnica del producto (2-5 días hábiles)</li>
+                <li>Reparación, reemplazo o reembolso según corresponda</li>
+              </ol>
+            </div>
+
+            <div style="margin-top: 30px;">
+              <p><strong>Tienda:</strong> ${sale.store_name}</p>
+              <p><strong>Vendedor:</strong> ${sale.employee_name}</p>
+              <p><strong>Total de la Compra:</strong> ${sale.total_sale} Bs.</p>
+            </div>
+
+            <div class="signature-section">
+              <div class="signature-box">
+                <p>Firma del Cliente</p>
+                <p>Fecha: _______________</p>
+              </div>
+              <div class="signature-box">
+                <p>Firma del Vendedor</p>
+                <p>Fecha: ${format(new Date(), "dd/MM/yyyy")}</p>
+              </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px; font-size: 12px; color: #666;">
+              <p>Este contrato de garantía es válido únicamente para los productos especificados arriba.</p>
+              <p>Para consultas sobre garantía, contactar a la tienda de compra.</p>
+            </div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
   // Iniciar edición de venta (solo administradores)
   const startEditSale = (sale: SaleHistoryItem) => {
     if (currentEmployee?.position !== "administrador") {
@@ -553,6 +722,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     setEditFormData({
       type_of_payment: sale.type_of_payment,
       total_sale: sale.total_sale,
+      customer_name: sale.customer_name,
+      customer_phone: sale.customer_phone,
       products: sale.products,
     });
   };
@@ -567,6 +738,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         .update({
           type_of_payment: editFormData.type_of_payment,
           total_sale: editFormData.total_sale,
+          customer_name: editFormData.customer_name || null,
+          customer_phone: editFormData.customer_phone || null,
           quantity_products: editFormData.products.length,
         })
         .eq("id", editingSale);
@@ -749,20 +922,46 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
             )}
           </div>
 
-          {/* Tipo de pago */}
-          <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mb-4">
-            <label className="text-sm font-medium text-gray-700">
-              Tipo de Pago:
-            </label>
-            <select
-              value={paymentType}
-              onChange={(e) => setPaymentType(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="efectivo">Efectivo</option>
-              <option value="tarjeta">Tarjeta</option>
-              <option value="transferencia">Transferencia</option>
-            </select>
+          {/* Información del cliente y tipo de pago */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nombre del Cliente (Opcional)
+              </label>
+              <input
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Ingrese el nombre del cliente"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Teléfono del Cliente (Opcional)
+              </label>
+              <input
+                type="tel"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                placeholder="Ingrese el teléfono del cliente"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tipo de Pago
+              </label>
+              <select
+                value={paymentType}
+                onChange={(e) => setPaymentType(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="efectivo">Efectivo</option>
+                <option value="tarjeta">Tarjeta</option>
+                <option value="transferencia">Transferencia</option>
+              </select>
+            </div>
           </div>
 
           {/* Productos seleccionados */}
@@ -979,6 +1178,9 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                     Fecha
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Cliente
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Productos
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1003,6 +1205,48 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                   <tr key={sale.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {format(new Date(sale.sale_date), "dd/MM/yyyy HH:mm")}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      {editingSale === sale.id ? (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={editFormData.customer_name || ''}
+                            onChange={(e) =>
+                              setEditFormData({
+                                ...editFormData,
+                                customer_name: e.target.value,
+                              })
+                            }
+                            placeholder="Nombre del cliente"
+                            className="border rounded px-2 py-1 text-sm w-full"
+                          />
+                          <input
+                            type="tel"
+                            value={editFormData.customer_phone || ''}
+                            onChange={(e) =>
+                              setEditFormData({
+                                ...editFormData,
+                                customer_phone: e.target.value,
+                              })
+                            }
+                            placeholder="Teléfono del cliente"
+                            className="border rounded px-2 py-1 text-sm w-full"
+                          />
+                        </div>
+                      ) : (
+                        <div className="text-sm">
+                          {sale.customer_name && (
+                            <div className="font-medium">{sale.customer_name}</div>
+                          )}
+                          {sale.customer_phone && (
+                            <div className="text-gray-500">{sale.customer_phone}</div>
+                          )}
+                          {!sale.customer_name && !sale.customer_phone && (
+                            <span className="text-gray-400 italic">Sin información</span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       {editingSale === sale.id ? (
@@ -1130,14 +1374,21 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                           <button
                             onClick={() => handlePrintSale(sale)}
                             className="text-blue-600 hover:text-blue-900"
-                            title="Imprimir"
+                            title="Imprimir Factura"
                           >
                             <Printer size={18} />
+                          </button>
+                          <button
+                            onClick={() => handlePrintWarranty(sale)}
+                            className="text-green-600 hover:text-green-900"
+                            title="Imprimir Garantía"
+                          >
+                            <FileText size={18} />
                           </button>
                           {currentEmployee?.position === "administrador" && (
                             <button
                               onClick={() => startEditSale(sale)}
-                              className="text-green-600 hover:text-green-900"
+                              className="text-orange-600 hover:text-orange-900"
                               title="Editar"
                             >
                               <Edit size={18} />
@@ -1151,7 +1402,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                 {salesHistory.length === 0 && (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-6 py-4 text-center text-gray-500"
                     >
                       No hay ventas registradas
@@ -1193,14 +1444,21 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                         <button
                           onClick={() => handlePrintSale(sale)}
                           className="text-blue-600 hover:text-blue-900"
-                          title="Imprimir"
+                          title="Imprimir Factura"
                         >
                           <Printer size={16} />
+                        </button>
+                        <button
+                          onClick={() => handlePrintWarranty(sale)}
+                          className="text-green-600 hover:text-green-900"
+                          title="Imprimir Garantía"
+                        >
+                          <FileText size={16} />
                         </button>
                         {currentEmployee?.position === "administrador" && (
                           <button
                             onClick={() => startEditSale(sale)}
-                            className="text-green-600 hover:text-green-900"
+                            className="text-orange-600 hover:text-orange-900"
                             title="Editar"
                           >
                             <Edit size={16} />
@@ -1212,6 +1470,50 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                 </div>
 
                 <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="text-gray-600">Cliente:</span>
+                    {editingSale === sale.id ? (
+                      <div className="mt-1 space-y-1">
+                        <input
+                          type="text"
+                          value={editFormData.customer_name || ''}
+                          onChange={(e) =>
+                            setEditFormData({
+                              ...editFormData,
+                              customer_name: e.target.value,
+                            })
+                          }
+                          placeholder="Nombre del cliente"
+                          className="border rounded px-2 py-1 text-xs w-full"
+                        />
+                        <input
+                          type="tel"
+                          value={editFormData.customer_phone || ''}
+                          onChange={(e) =>
+                            setEditFormData({
+                              ...editFormData,
+                              customer_phone: e.target.value,
+                            })
+                          }
+                          placeholder="Teléfono del cliente"
+                          className="border rounded px-2 py-1 text-xs w-full"
+                        />
+                      </div>
+                    ) : (
+                      <div className="mt-1">
+                        {sale.customer_name && (
+                          <div className="font-medium">{sale.customer_name}</div>
+                        )}
+                        {sale.customer_phone && (
+                          <div className="text-gray-500">{sale.customer_phone}</div>
+                        )}
+                        {!sale.customer_name && !sale.customer_phone && (
+                          <span className="text-gray-400 italic">Sin información</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   <div>
                     <span className="text-gray-600">Productos:</span>
                     <div className="mt-1 space-y-1">
