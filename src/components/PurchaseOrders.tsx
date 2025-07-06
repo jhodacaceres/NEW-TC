@@ -161,9 +161,10 @@ export const PurchaseOrders: React.FC = () => {
     }
 
     try {
-      const orderId = crypto.randomUUID();
+      // Use existing order ID when editing, generate new one when creating
+      const orderId = editingOrder ? editingOrder.id : crypto.randomUUID();
+      
       const orderData = {
-        id: orderId,
         supplier_id: formData.supplier_id,
         employee_id: currentEmployee.id,
         total_amount: formData.total_amount,
@@ -171,11 +172,11 @@ export const PurchaseOrders: React.FC = () => {
         balance_due: formData.total_amount - formData.paid_amount,
         status: formData.status,
         price_unit: formData.price_unit,
-        order_date: new Date().toISOString()
+        order_date: editingOrder ? editingOrder.order_date : new Date().toISOString()
       };
 
       if (editingOrder) {
-        // Update existing order
+        // Update existing order - don't include id in the update data
         const { error: orderError } = await supabase
           .from('purchase_orders')
           .update(orderData)
@@ -196,10 +197,10 @@ export const PurchaseOrders: React.FC = () => {
           .eq('order_id', editingOrder.id);
 
       } else {
-        // Create new order
+        // Create new order - include id in the insert data
         const { error: orderError } = await supabase
           .from('purchase_orders')
-          .insert([orderData]);
+          .insert([{ id: orderId, ...orderData }]);
 
         if (orderError) throw orderError;
       }
@@ -207,7 +208,7 @@ export const PurchaseOrders: React.FC = () => {
       // Insert items
       const items = formData.items.map(item => ({
         id: crypto.randomUUID(),
-        order_id: editingOrder?.id || orderId,
+        order_id: orderId,
         product_id: item.product_id,
         quantity: item.quantity,
         total_price: item.total_price
@@ -224,7 +225,7 @@ export const PurchaseOrders: React.FC = () => {
         if (currentEmployee.position === 'administrador') {
           const reminderItems = formData.items.map(item => ({
             id: crypto.randomUUID(),
-            order_id: editingOrder?.id || orderId,
+            order_id: orderId,
             product_id: item.product_id,
             quantity_pending: item.quantity,
             is_resolved: false,
