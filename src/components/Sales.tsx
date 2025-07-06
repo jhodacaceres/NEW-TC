@@ -12,7 +12,7 @@ import {
   Plus,
   Minus,
 } from "lucide-react";
-import { useScanner, useAutoSelectProduct } from "../hooks/usescanner";
+import { useScanner, useAutoSelectProduct } from "../hooks/useScanner";
 
 interface SalesProps {
   exchangeRate: number;
