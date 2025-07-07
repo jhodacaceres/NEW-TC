@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, AlertTriangle, Check, ArrowLeftIcon, ArrowRightIcon, DollarSign } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, AlertTriangle, Check, ArrowLeftIcon, ArrowRightIcon, DollarSign, History } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import toast, { Toaster } from 'react-hot-toast';
@@ -67,6 +67,8 @@ export const PurchaseOrders: React.FC = () => {
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState<PurchaseOrder | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
+  const [showPaymentHistory, setShowPaymentHistory] = useState(false);
+  const [selectedOrderForHistory, setSelectedOrderForHistory] = useState<PurchaseOrder | null>(null);
   
   // Estados de paginación
   const [offset, setOffset] = useState(0);
@@ -152,6 +154,23 @@ export const PurchaseOrders: React.FC = () => {
     }
   };
 
+  // Función para formatear montos a 2 decimales
+  const formatCurrency = (amount: number) => {
+    return parseFloat(amount.toFixed(2));
+  };
+
+  // Función para abrir el historial de pagos
+  const openPaymentHistory = (order: PurchaseOrder) => {
+    setSelectedOrderForHistory(order);
+    setShowPaymentHistory(true);
+  };
+
+  // Función para cerrar el historial de pagos
+  const closePaymentHistory = () => {
+    setShowPaymentHistory(false);
+    setSelectedOrderForHistory(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -167,11 +186,11 @@ export const PurchaseOrders: React.FC = () => {
       const orderData = {
         supplier_id: formData.supplier_id,
         employee_id: currentEmployee.id,
-        total_amount: formData.total_amount,
-        paid_amount: formData.paid_amount,
-        balance_due: formData.total_amount - formData.paid_amount,
+        total_amount: formatCurrency(formData.total_amount),
+        paid_amount: formatCurrency(formData.paid_amount),
+        balance_due: formatCurrency(formData.total_amount - formData.paid_amount),
         status: formData.status,
-        price_unit: formData.price_unit,
+        price_unit: formatCurrency(formData.price_unit),
         order_date: editingOrder ? editingOrder.order_date : new Date().toISOString()
       };
 
@@ -211,7 +230,7 @@ export const PurchaseOrders: React.FC = () => {
         order_id: orderId,
         product_id: item.product_id,
         quantity: item.quantity,
-        total_price: item.total_price
+        total_price: formatCurrency(item.total_price)
       }));
 
       if (items.length > 0) {
@@ -264,7 +283,7 @@ export const PurchaseOrders: React.FC = () => {
         .insert([{
           id: crypto.randomUUID(),
           order_id: selectedOrderForPayment.id,
-          amount: paymentData.amount,
+          amount: formatCurrency(paymentData.amount),
           payment_method: paymentData.payment_method,
           employee_id: currentEmployee.id,
           payment_date: new Date().toISOString()
@@ -279,8 +298,8 @@ export const PurchaseOrders: React.FC = () => {
       const { error: updateError } = await supabase
         .from('purchase_orders')
         .update({
-          paid_amount: newPaidAmount,
-          balance_due: newBalance
+          paid_amount: formatCurrency(newPaidAmount),
+          balance_due: formatCurrency(newBalance)
         })
         .eq('id', selectedOrderForPayment.id);
 
@@ -476,6 +495,84 @@ export const PurchaseOrders: React.FC = () => {
         </div>
       )}
 
+      {/* Modal de historial de pagos */}
+      {showPaymentHistory && selectedOrderForHistory && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold">
+                Historial de Pagos - Orden #{selectedOrderForHistory.id.substring(0, 8)}
+              </h2>
+              <button
+                onClick={closePaymentHistory}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600">Total de la orden:</span>
+                  <p className="font-medium">{formatCurrency(selectedOrderForHistory.total_amount)} Bs.</p>
+                </div>
+                <div>
+                  <span className="text-gray-600">Ya pagado:</span>
+                  <p className="font-medium">{formatCurrency(selectedOrderForHistory.paid_amount)} Bs.</p>
+                </div>
+                <div>
+                  <span className="text-gray-600">Saldo pendiente:</span>
+                  <p className="font-medium text-red-600">{formatCurrency(selectedOrderForHistory.balance_due)} Bs.</p>
+                </div>
+              </div>
+            </div>
+
+            <h3 className="text-lg font-medium mb-4">Detalle de Pagos</h3>
+            
+            {getOrderPayments(selectedOrderForHistory.id).length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {getOrderPayments(selectedOrderForHistory.id).map((payment) => (
+                      <tr key={payment.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {format(new Date(payment.payment_date), 'dd/MM/yyyy HH:mm')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-700 font-medium">
+                          {formatCurrency(payment.amount)} Bs.
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">
+                          {payment.payment_method}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-center text-gray-500 py-4">No hay pagos registrados para esta orden</p>
+            )}
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={closePaymentHistory}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Formulario de pago */}
       {showPaymentForm && selectedOrderForPayment && (
         <div className="bg-white rounded-lg shadow p-6">
@@ -498,15 +595,15 @@ export const PurchaseOrders: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
               <div>
                 <span className="text-gray-600">Total de la orden:</span>
-                <p className="font-medium">{selectedOrderForPayment.total_amount} Bs.</p>
+                <p className="font-medium">{formatCurrency(selectedOrderForPayment.total_amount)} Bs.</p>
               </div>
               <div>
                 <span className="text-gray-600">Ya pagado:</span>
-                <p className="font-medium">{selectedOrderForPayment.paid_amount} Bs.</p>
+                <p className="font-medium">{formatCurrency(selectedOrderForPayment.paid_amount)} Bs.</p>
               </div>
               <div>
                 <span className="text-gray-600">Saldo pendiente:</span>
-                <p className="font-medium text-red-600">{selectedOrderForPayment.balance_due} Bs.</p>
+                <p className="font-medium text-red-600">{formatCurrency(selectedOrderForPayment.balance_due)} Bs.</p>
               </div>
             </div>
           </div>
@@ -814,14 +911,14 @@ export const PurchaseOrders: React.FC = () => {
                       {getSupplierName(order.supplier_id)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {order.total_amount} Bs.
+                      {formatCurrency(order.total_amount)} Bs.
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {order.paid_amount} Bs.
+                      {formatCurrency(order.paid_amount)} Bs.
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <span className={order.balance_due > 0 ? 'text-red-600 font-medium' : 'text-green-600'}>
-                        {order.balance_due} Bs.
+                        {formatCurrency(order.balance_due)} Bs.
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -838,6 +935,13 @@ export const PurchaseOrders: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
+                        <button
+                          onClick={() => openPaymentHistory(order)}
+                          className="text-purple-600 hover:text-purple-800"
+                          title="Ver Historial"
+                        >
+                          <History size={16} />
+                        </button>
                         {order.balance_due > 0 && (
                           <button
                             onClick={() => handleAddPayment(order)}
@@ -901,20 +1005,27 @@ export const PurchaseOrders: React.FC = () => {
                     <span className="text-gray-600">Proveedor:</span> {getSupplierName(order.supplier_id)}
                   </div>
                   <div>
-                    <span className="text-gray-600">Total:</span> {order.total_amount} Bs.
+                    <span className="text-gray-600">Total:</span> {formatCurrency(order.total_amount)} Bs.
                   </div>
                   <div>
-                    <span className="text-gray-600">Pagado:</span> {order.paid_amount} Bs.
+                    <span className="text-gray-600">Pagado:</span> {formatCurrency(order.paid_amount)} Bs.
                   </div>
                   <div>
                     <span className="text-gray-600">Saldo:</span> 
                     <span className={order.balance_due > 0 ? 'text-red-600 font-medium' : 'text-green-600'}>
-                      {order.balance_due} Bs.
+                      {formatCurrency(order.balance_due)} Bs.
                     </span>
                   </div>
                 </div>
                 
                 <div className="flex justify-end space-x-2 mt-4">
+                  <button
+                    onClick={() => openPaymentHistory(order)}
+                    className="text-purple-600 hover:text-purple-800"
+                    title="Ver Historial"
+                  >
+                    <History size={18} />
+                  </button>
                   {order.balance_due > 0 && (
                     <button
                       onClick={() => handleAddPayment(order)}
@@ -937,20 +1048,6 @@ export const PurchaseOrders: React.FC = () => {
                     <Trash2 size={18} />
                   </button>
                 </div>
-
-                {/* Mostrar historial de pagos si existen */}
-                {getOrderPayments(order.id).length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Historial de Pagos:</h4>
-                    <div className="space-y-1">
-                      {getOrderPayments(order.id).map((payment) => (
-                        <div key={payment.id} className="text-xs text-gray-600">
-                          {format(new Date(payment.payment_date), 'dd/MM/yyyy')} - {payment.amount} Bs. ({payment.payment_method})
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             ))}
             
