@@ -59,7 +59,7 @@ interface Sale {
   type_of_payment: string;
   quantity_products: number;
   customer_name?: string;
-  customer_ci?: string;
+  customer_phone?: string;
   store_id: string;
   employee_id: string;
   employees?: {
@@ -81,7 +81,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const [availableProducts, setAvailableProducts] = useState<ProductBarcode[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [customerName, setCustomerName] = useState("");
-  const [customerCI, setCustomerCI] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [paymentType, setPaymentType] = useState("efectivo");
   const [totalAmount, setTotalAmount] = useState(0);
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
@@ -194,7 +194,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           type_of_payment,
           quantity_products,
           customer_name,
-          customer_ci,
+          customer_phone,
           store_id,
           employee_id,
           employees!employee_id (first_name, last_name),
@@ -313,7 +313,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           type_of_payment: paymentType,
           quantity_products: selectedProducts.length,
           customer_name: customerName || null,
-          customer_ci: customerCI || null,
+          customer_phone: customerPhone || null,
           sale_date: new Date().toISOString(),
         },
       ]);
@@ -350,7 +350,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       // Limpiar formulario
       setSelectedProducts([]);
       setCustomerName("");
-      setCustomerCI("");
+      setCustomerPhone("");
       setPaymentType("efectivo");
       setSearchTerm("");
       
@@ -390,7 +390,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     }
   };
 
-  const generateInvoice = async (sale: Sale) => {
+  // Función para generar factura POS térmica
+  const generatePOSInvoice = async (sale: Sale) => {
     try {
       // Obtener productos de la venta
       const { data: saleProducts } = await supabase
@@ -402,83 +403,171 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         `)
         .eq("sale_id", sale.id);
 
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      
-      // Header con logo
-      doc.addImage(Logo, "PNG", pageWidth - 50, 10, 30, 20);
-      
-      // Título
-      doc.setFontSize(20);
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: [80, 200] // Ancho 80mm, altura variable
+      });
+
+      // Configuración para impresora térmica POS
+      const pageWidth = 80;
+      const margin = 4;
+      const contentWidth = pageWidth - (margin * 2);
+      let yPos = 10;
+
+      // Función para centrar texto
+      const centerText = (text: string, y: number, fontSize = 10) => {
+        doc.setFontSize(fontSize);
+        const textWidth = doc.getTextWidth(text);
+        const x = (pageWidth - textWidth) / 2;
+        doc.text(text, x, y);
+      };
+
+      // Función para texto justificado
+      const justifyText = (left: string, right: string, y: number) => {
+        doc.setFontSize(8);
+        doc.text(left, margin, y);
+        const rightWidth = doc.getTextWidth(right);
+        doc.text(right, pageWidth - margin - rightWidth, y);
+      };
+
+      // Línea divisoria
+      const drawLine = (y: number) => {
+        doc.text("----------------------------------------", margin, y);
+      };
+
+      // ENCABEZADO
       doc.setFont("helvetica", "bold");
-      doc.text("FACTURA", 20, 25);
+      centerText("TIENDAS MOVIL AXCEL", yPos, 12);
+      yPos += 6;
       
-      // Información de la empresa
-      doc.setFontSize(12);
       doc.setFont("helvetica", "normal");
-      doc.text("TIENDAS MÓVIL AXCEL", 20, 35);
-      doc.text("Venta de equipos móviles", 20, 42);
-      
-      // Información de la venta
-      doc.text(`Factura N°: ${sale.id.slice(-8).toUpperCase()}`, 20, 55);
-      doc.text(`Fecha: ${format(new Date(sale.sale_date), "dd/MM/yyyy HH:mm")}`, 20, 62);
-      doc.text(`Vendedor: ${sale.employees?.first_name} ${sale.employees?.last_name}`, 20, 69);
-      
-      // Información del cliente
-      if (sale.customer_name || sale.customer_ci) {
-        doc.text("DATOS DEL CLIENTE:", 20, 82);
-        if (sale.customer_name) {
-          doc.text(`Nombre: ${sale.customer_name}`, 20, 89);
-        }
-        if (sale.customer_ci) {
-          doc.text(`C.I.: ${sale.customer_ci}`, 20, 96);
-        }
-      }
-      
-      // Tabla de productos
-      const tableData = (saleProducts || []).map((item: any, index: number) => {
-        const finalPrice = item.products.cost_price * exchangeRate + item.products.profit_bob;
-        const meiList = item.mei_codes?.map((mei: string, idx: number) => `MEI${idx + 1}: ${mei}`).join(", ") || "N/A";
+      doc.setFontSize(8);
+      centerText("Venta de equipos moviles", yPos);
+      yPos += 4;
+      centerText("NIT: 123456789", yPos);
+      yPos += 8;
+
+      drawLine(yPos);
+      yPos += 6;
+
+      // INFORMACIÓN DE LA FACTURA
+      doc.setFont("helvetica", "bold");
+      centerText("FACTURA", yPos, 10);
+      yPos += 6;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      justifyText("No:", sale.id.slice(-8).toUpperCase(), yPos);
+      yPos += 4;
+      justifyText("Fecha:", format(new Date(sale.sale_date), "dd/MM/yyyy"), yPos);
+      yPos += 4;
+      justifyText("Hora:", format(new Date(sale.sale_date), "HH:mm"), yPos);
+      yPos += 4;
+      justifyText("Vendedor:", `${sale.employees?.first_name} ${sale.employees?.last_name}`, yPos);
+      yPos += 4;
+      justifyText("Tienda:", sale.stores?.name || "N/A", yPos);
+      yPos += 6;
+
+      // INFORMACIÓN DEL CLIENTE (si existe)
+      if (sale.customer_name || sale.customer_phone) {
+        drawLine(yPos);
+        yPos += 4;
+        doc.setFont("helvetica", "bold");
+        doc.text("CLIENTE:", margin, yPos);
+        yPos += 4;
+        doc.setFont("helvetica", "normal");
         
-        return [
-          index + 1,
-          item.products.name,
-          item.products.color,
-          item.product_barcodes_store?.barcode || "N/A",
-          meiList,
-          `${Math.round(finalPrice)} Bs.`
-        ];
-      });
+        if (sale.customer_name) {
+          doc.text(`Nombre: ${sale.customer_name}`, margin, yPos);
+          yPos += 4;
+        }
+        if (sale.customer_phone) {
+          doc.text(`Telefono: ${sale.customer_phone}`, margin, yPos);
+          yPos += 4;
+        }
+        yPos += 2;
+      }
 
-      autoTable(doc, {
-        startY: sale.customer_name || sale.customer_ci ? 105 : 85,
-        head: [["#", "Producto", "Color", "Código", "Códigos MEI", "Precio"]],
-        body: tableData,
-        styles: { fontSize: 10 },
-        headStyles: { fillColor: [59, 130, 246] },
-      });
+      drawLine(yPos);
+      yPos += 4;
 
-      // Total
-      const finalY = (doc as any).lastAutoTable.finalY + 10;
-      doc.setFontSize(14);
+      // PRODUCTOS
       doc.setFont("helvetica", "bold");
-      doc.text(`TOTAL: ${sale.total_sale} Bs.`, pageWidth - 60, finalY);
-      doc.text(`Forma de pago: ${sale.type_of_payment.toUpperCase()}`, 20, finalY);
-      
-      // Footer
-      doc.setFontSize(10);
+      doc.setFontSize(8);
+      doc.text("PRODUCTOS:", margin, yPos);
+      yPos += 4;
+
       doc.setFont("helvetica", "normal");
-      doc.text("Gracias por su compra", pageWidth / 2, finalY + 20, { align: "center" });
-      
-      doc.save(`factura_${sale.id.slice(-8)}.pdf`);
-      toast.success("Factura generada exitosamente");
+      (saleProducts || []).forEach((item: any, index: number) => {
+        const finalPrice = item.products.cost_price * exchangeRate + item.products.profit_bob;
+        
+        // Nombre del producto
+        const productName = `${item.products.name} - ${item.products.color}`;
+        const lines = doc.splitTextToSize(productName, contentWidth);
+        lines.forEach((line: string) => {
+          doc.text(line, margin, yPos);
+          yPos += 3;
+        });
+        
+        // Código de barras
+        doc.text(`Cod: ${item.product_barcodes_store?.barcode || "N/A"}`, margin, yPos);
+        yPos += 3;
+        
+        // Códigos MEI (si existen)
+        if (item.mei_codes && item.mei_codes.length > 0) {
+          item.mei_codes.forEach((mei: string, idx: number) => {
+            doc.text(`MEI${idx + 1}: ${mei}`, margin, yPos);
+            yPos += 3;
+          });
+        }
+        
+        // Precio
+        justifyText("Precio:", `${Math.round(finalPrice)} Bs.`, yPos);
+        yPos += 5;
+      });
+
+      drawLine(yPos);
+      yPos += 4;
+
+      // TOTALES
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      justifyText("TOTAL:", `${sale.total_sale} Bs.`, yPos);
+      yPos += 6;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      justifyText("Forma de pago:", sale.type_of_payment.toUpperCase(), yPos);
+      yPos += 6;
+
+      drawLine(yPos);
+      yPos += 6;
+
+      // PIE DE PÁGINA
+      doc.setFontSize(7);
+      centerText("¡Gracias por su compra!", yPos);
+      yPos += 4;
+      centerText("Garantia de 12 meses", yPos);
+      yPos += 4;
+      centerText("Solo defectos de fabrica", yPos);
+      yPos += 6;
+      centerText(`${format(new Date(), "dd/MM/yyyy HH:mm")}`, yPos);
+
+      // Ajustar altura del documento
+      const finalHeight = yPos + 10;
+      doc.internal.pageSize.height = finalHeight;
+
+      doc.save(`factura_pos_${sale.id.slice(-8)}.pdf`);
+      toast.success("Factura POS generada exitosamente");
     } catch (error) {
-      console.error("Error generating invoice:", error);
-      toast.error("Error al generar la factura");
+      console.error("Error generating POS invoice:", error);
+      toast.error("Error al generar la factura POS");
     }
   };
 
-  const generateWarranty = async (sale: Sale) => {
+  // Función para generar garantía POS térmica
+  const generatePOSWarranty = async (sale: Sale) => {
     try {
       // Obtener productos de la venta
       const { data: saleProducts } = await supabase
@@ -490,71 +579,180 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         `)
         .eq("sale_id", sale.id);
 
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      
-      // Header
-      doc.addImage(Logo, "PNG", pageWidth - 50, 10, 30, 20);
-      
-      doc.setFontSize(20);
-      doc.setFont("helvetica", "bold");
-      doc.text("CERTIFICADO DE GARANTÍA", 20, 25);
-      
-      // Información
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "normal");
-      doc.text("TIENDAS MÓVIL AXCEL", 20, 40);
-      doc.text(`Garantía N°: ${sale.id.slice(-8).toUpperCase()}`, 20, 50);
-      doc.text(`Fecha de compra: ${format(new Date(sale.sale_date), "dd/MM/yyyy")}`, 20, 57);
-      
-      // Cliente
-      if (sale.customer_name || sale.customer_ci) {
-        doc.text("CLIENTE:", 20, 70);
-        if (sale.customer_name) {
-          doc.text(`Nombre: ${sale.customer_name}`, 20, 77);
-        }
-        if (sale.customer_ci) {
-          doc.text(`C.I.: ${sale.customer_ci}`, 20, 84);
-        }
-      }
-      
-      // Productos
-      let yPos = sale.customer_name || sale.customer_ci ? 95 : 75;
-      doc.text("PRODUCTOS BAJO GARANTÍA:", 20, yPos);
-      
-      (saleProducts || []).forEach((item: any, index: number) => {
-        yPos += 10;
-        doc.text(`${index + 1}. ${item.products.name} - ${item.products.color}`, 25, yPos);
-        yPos += 7;
-        doc.text(`   Especificaciones: ${item.products.ram}GB RAM, ${item.products.rom}GB ROM, ${item.products.processor}`, 25, yPos);
-        yPos += 7;
-        doc.text(`   Código: ${item.product_barcodes_store?.barcode || "N/A"}`, 25, yPos);
-        
-        if (item.mei_codes && item.mei_codes.length > 0) {
-          yPos += 7;
-          const meiList = item.mei_codes.map((mei: string, idx: number) => `MEI${idx + 1}: ${mei}`).join(", ");
-          doc.text(`   ${meiList}`, 25, yPos);
-        }
-        yPos += 5;
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: [80, 250] // Ancho 80mm, altura variable para garantía
       });
-      
-      // Términos
-      yPos += 15;
+
+      const pageWidth = 80;
+      const margin = 4;
+      const contentWidth = pageWidth - (margin * 2);
+      let yPos = 10;
+
+      // Función para centrar texto
+      const centerText = (text: string, y: number, fontSize = 10) => {
+        doc.setFontSize(fontSize);
+        const textWidth = doc.getTextWidth(text);
+        const x = (pageWidth - textWidth) / 2;
+        doc.text(text, x, y);
+      };
+
+      // Función para texto justificado
+      const justifyText = (left: string, right: string, y: number) => {
+        doc.setFontSize(8);
+        doc.text(left, margin, y);
+        const rightWidth = doc.getTextWidth(right);
+        doc.text(right, pageWidth - margin - rightWidth, y);
+      };
+
+      // Línea divisoria
+      const drawLine = (y: number) => {
+        doc.text("----------------------------------------", margin, y);
+      };
+
+      // ENCABEZADO
       doc.setFont("helvetica", "bold");
-      doc.text("TÉRMINOS DE GARANTÍA:", 20, yPos);
-      doc.setFont("helvetica", "normal");
-      yPos += 10;
-      doc.text("• Garantía válida por 12 meses desde la fecha de compra", 25, yPos);
-      yPos += 7;
-      doc.text("• Cubre defectos de fabricación", 25, yPos);
-      yPos += 7;
-      doc.text("• No cubre daños por mal uso o accidentes", 25, yPos);
+      centerText("TIENDAS MOVIL AXCEL", yPos, 12);
+      yPos += 6;
       
-      doc.save(`garantia_${sale.id.slice(-8)}.pdf`);
-      toast.success("Garantía generada exitosamente");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      centerText("Venta de equipos moviles", yPos);
+      yPos += 8;
+
+      doc.setFont("helvetica", "bold");
+      centerText("CERTIFICADO DE GARANTIA", yPos, 10);
+      yPos += 8;
+
+      drawLine(yPos);
+      yPos += 4;
+
+      // INFORMACIÓN DE LA GARANTÍA
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      justifyText("Garantia No:", sale.id.slice(-8).toUpperCase(), yPos);
+      yPos += 4;
+      justifyText("Fecha compra:", format(new Date(sale.sale_date), "dd/MM/yyyy"), yPos);
+      yPos += 4;
+      justifyText("Vendedor:", `${sale.employees?.first_name} ${sale.employees?.last_name}`, yPos);
+      yPos += 6;
+
+      // INFORMACIÓN DEL CLIENTE
+      if (sale.customer_name || sale.customer_phone) {
+        doc.setFont("helvetica", "bold");
+        doc.text("CLIENTE:", margin, yPos);
+        yPos += 4;
+        doc.setFont("helvetica", "normal");
+        
+        if (sale.customer_name) {
+          doc.text(`${sale.customer_name}`, margin, yPos);
+          yPos += 4;
+        }
+        if (sale.customer_phone) {
+          doc.text(`Tel: ${sale.customer_phone}`, margin, yPos);
+          yPos += 4;
+        }
+        yPos += 2;
+      }
+
+      drawLine(yPos);
+      yPos += 4;
+
+      // PRODUCTOS BAJO GARANTÍA
+      doc.setFont("helvetica", "bold");
+      doc.text("PRODUCTOS BAJO GARANTIA:", margin, yPos);
+      yPos += 4;
+
+      doc.setFont("helvetica", "normal");
+      (saleProducts || []).forEach((item: any, index: number) => {
+        // Nombre y especificaciones
+        const productInfo = `${index + 1}. ${item.products.name}`;
+        const lines = doc.splitTextToSize(productInfo, contentWidth);
+        lines.forEach((line: string) => {
+          doc.text(line, margin, yPos);
+          yPos += 3;
+        });
+        
+        doc.text(`Color: ${item.products.color}`, margin + 3, yPos);
+        yPos += 3;
+        doc.text(`${item.products.ram}GB RAM, ${item.products.rom}GB ROM`, margin + 3, yPos);
+        yPos += 3;
+        doc.text(`${item.products.processor}`, margin + 3, yPos);
+        yPos += 3;
+        doc.text(`Cod: ${item.product_barcodes_store?.barcode || "N/A"}`, margin + 3, yPos);
+        yPos += 3;
+        
+        // Códigos MEI
+        if (item.mei_codes && item.mei_codes.length > 0) {
+          item.mei_codes.forEach((mei: string, idx: number) => {
+            doc.text(`MEI${idx + 1}: ${mei}`, margin + 3, yPos);
+            yPos += 3;
+          });
+        }
+        yPos += 2;
+      });
+
+      drawLine(yPos);
+      yPos += 4;
+
+      // TÉRMINOS DE GARANTÍA
+      doc.setFont("helvetica", "bold");
+      doc.text("TERMINOS DE GARANTIA:", margin, yPos);
+      yPos += 4;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      
+      const terms = [
+        "• Garantia valida por 12 meses",
+        "• Cubre defectos de fabricacion",
+        "• NO cubre danos por mal uso",
+        "• NO cubre danos por liquidos",
+        "• NO cubre pantalla rota",
+        "• NO cubre golpes o caidas",
+        "• Presentar este comprobante",
+        "• Garantia solo en tienda"
+      ];
+
+      terms.forEach(term => {
+        const termLines = doc.splitTextToSize(term, contentWidth);
+        termLines.forEach((line: string) => {
+          doc.text(line, margin, yPos);
+          yPos += 3;
+        });
+      });
+
+      yPos += 4;
+      drawLine(yPos);
+      yPos += 6;
+
+      // FIRMA DEL CLIENTE
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.text("FIRMA DEL CLIENTE:", margin, yPos);
+      yPos += 8;
+      doc.text("_________________________", margin, yPos);
+      yPos += 8;
+
+      // PIE DE PÁGINA
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      centerText("Conserve este documento", yPos);
+      yPos += 4;
+      centerText("Es su comprobante de garantia", yPos);
+      yPos += 6;
+      centerText(`Impreso: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, yPos);
+
+      // Ajustar altura del documento
+      const finalHeight = yPos + 10;
+      doc.internal.pageSize.height = finalHeight;
+
+      doc.save(`garantia_pos_${sale.id.slice(-8)}.pdf`);
+      toast.success("Garantía POS generada exitosamente");
     } catch (error) {
-      console.error("Error generating warranty:", error);
-      toast.error("Error al generar la garantía");
+      console.error("Error generating POS warranty:", error);
+      toast.error("Error al generar la garantía POS");
     }
   };
 
@@ -766,13 +964,13 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              C.I. del Cliente (Opcional)
+              Teléfono del Cliente (Opcional)
             </label>
             <input
-              type="text"
-              value={customerCI}
-              onChange={(e) => setCustomerCI(e.target.value)}
-              placeholder="Ingrese el C.I. del cliente"
+              type="tel"
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              placeholder="Ingrese el teléfono del cliente"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -897,8 +1095,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {sale.customer_name || "Sin nombre"}
-                      {sale.customer_ci && (
-                        <div className="text-xs text-gray-500">C.I.: {sale.customer_ci}</div>
+                      {sale.customer_phone && (
+                        <div className="text-xs text-gray-500">Tel: {sale.customer_phone}</div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -971,16 +1169,16 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                           </>
                         )}
                         <button
-                          onClick={() => generateInvoice(sale)}
+                          onClick={() => generatePOSInvoice(sale)}
                           className="text-green-600 hover:text-green-800"
-                          title="Factura"
+                          title="Factura POS"
                         >
                           <Printer size={16} />
                         </button>
                         <button
-                          onClick={() => generateWarranty(sale)}
+                          onClick={() => generatePOSWarranty(sale)}
                           className="text-purple-600 hover:text-purple-800"
-                          title="Garantía"
+                          title="Garantía POS"
                         >
                           <Printer size={16} />
                         </button>
@@ -1017,8 +1215,14 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                       </button>
                     )}
                     <button
-                      onClick={() => generateInvoice(sale)}
+                      onClick={() => generatePOSInvoice(sale)}
                       className="text-green-600 hover:text-green-800"
+                    >
+                      <Printer size={16} />
+                    </button>
+                    <button
+                      onClick={() => generatePOSWarranty(sale)}
+                      className="text-purple-600 hover:text-purple-800"
                     >
                       <Printer size={16} />
                     </button>
@@ -1028,7 +1232,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                 <div className="space-y-1 text-sm">
                   <div>
                     <span className="text-gray-600">Cliente:</span> {sale.customer_name || "Sin nombre"}
-                    {sale.customer_ci && <span className="text-gray-500"> (C.I.: {sale.customer_ci})</span>}
+                    {sale.customer_phone && <span className="text-gray-500"> (Tel: {sale.customer_phone})</span>}
                   </div>
                   <div>
                     <span className="text-gray-600">Productos:</span> {sale.quantity_products}
