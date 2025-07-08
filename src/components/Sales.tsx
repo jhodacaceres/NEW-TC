@@ -185,39 +185,59 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     if (!currentEmployee) return;
 
     try {
-      let query = supabase
+      // Primero obtener las ventas básicas
+      let salesQuery = supabase
         .from("sales")
-        .select(`
-          id,
-          sale_date,
-          total_sale,
-          type_of_payment,
-          quantity_products,
-          customer_name,
-          customer_phone,
-          store_id,
-          employee_id,
-          employees!employee_id (first_name, last_name),
-          stores!store_id (name)
-        `)
+        .select("*")
         .order("sale_date", { ascending: false })
         .range(offset, offset + limitItems - 1);
 
       // Solo filtrar por tienda si es empleado de ventas
       if (currentEmployee.position !== "administrador") {
-        query = query.eq("store_id", currentEmployee.store_id);
+        salesQuery = salesQuery.eq("store_id", currentEmployee.store_id);
       }
-      // Para administradores: mostrar ventas de todas las tiendas (sin filtro adicional)
 
-      const { data, error } = await query;
+      const { data: salesData, error: salesError } = await salesQuery;
 
-      if (error) throw error;
+      if (salesError) throw salesError;
 
-      setSalesHistory(data || []);
-      setHasMore((data || []).length === limitItems);
+      if (salesData && salesData.length > 0) {
+        // Obtener información adicional para cada venta
+        const enrichedSales = await Promise.all(
+          salesData.map(async (sale) => {
+            // Obtener información del empleado
+            const { data: employeeData } = await supabase
+              .from("employees")
+              .select("first_name, last_name")
+              .eq("id", sale.employee_id)
+              .single();
+
+            // Obtener información de la tienda
+            const { data: storeData } = await supabase
+              .from("stores")
+              .select("name")
+              .eq("id", sale.store_id)
+              .single();
+
+            return {
+              ...sale,
+              employees: employeeData,
+              stores: storeData,
+            };
+          })
+        );
+
+        setSalesHistory(enrichedSales);
+        setHasMore(salesData.length === limitItems);
+      } else {
+        setSalesHistory([]);
+        setHasMore(false);
+      }
     } catch (error) {
       console.error("Error fetching sales history:", error);
       toast.error("Error al cargar historial de ventas");
+      setSalesHistory([]);
+      setHasMore(false);
     }
   };
 
