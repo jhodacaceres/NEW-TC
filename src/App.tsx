@@ -14,7 +14,7 @@ import { Stores } from "./components/Stores";
 import { PurchaseOrders } from "./components/PurchaseOrders";
 import { Login } from "./components/Login";
 import { supabase } from "./lib/supabase";
-import { Product, Store, Employee, Sale, Transfer } from "./types";
+import { Product, Store, Employee } from "./types";
 
 const initialProducts: Product[] = [];
 const initialStores: Store[] = [];
@@ -86,7 +86,7 @@ function App() {
     };
 
     fetchData();
-  }, [products]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -231,7 +231,7 @@ function App() {
       alert("No tienes permisos para realizar esta acción");
       return;
     }
-
+    if(!storeId) return;
     setProducts(
       products.map((product) =>
         product.id === productId ? { ...product, store_id: storeId } : product
@@ -329,18 +329,12 @@ function App() {
     if (currentEmployee?.position === "administrador") {
       return productsStore.filter((product) => product.active);
     }
-    if (currentEmployee?.position === "ventas") {
-      return productsStore.filter(
-        (product) => {
-          product.store_id === currentEmployee?.store_id && product.active
-
-        }
-      );
-    }
-    return productsStore;
+    console.log(productsStore)
+    return productsStore.filter((product => product.store_id === currentEmployee?.store_id && product.active));
   };
 
-  const filteredProducts = productsByRole(products).filter((product) => {
+  const filteredProducts = productsByRole(products)
+  .filter((product) => {
     const term = searchTerm.toLowerCase();
     return (
       product.name.toLowerCase().includes(term) ||
@@ -348,6 +342,7 @@ function App() {
       product.color.toLowerCase().includes(term)
     );
   });
+  console.log(filteredProducts)
   const renderContent = () => {
     const productsActive = productsByRole(products).length;
 
@@ -419,7 +414,7 @@ function App() {
                     <Search className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
-                    type="text"
+                    type="search"
                     placeholder="Buscar productos..."
                     className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     value={searchTerm}
@@ -450,12 +445,11 @@ function App() {
                   <section className="flex gap-4 my-8">
                     <div className="bg-gray-700/50 p-6 w-1/2 rounded-xl border border-gray-600/50">
                       <h3 className="text-2xl font-semibold mb-4 text-blue-300">
-                        {/* Poner el nombre de la tienda del empleado*/} 
-                        Cantidad de Productos {
-                          stores.find(
-                            (store) => store.id === currentEmployee?.store_id
-                          )?.name || "de la tienda"
-                        }
+                        {/* Poner el nombre de la tienda del empleado*/}
+                        Cantidad de Productos{" "}
+                        {stores.find(
+                          (store) => store.id === currentEmployee?.store_id
+                        )?.name || "de la tienda"}
                       </h3>
                       <p className="text-gray-300 font-bold text-2xl">
                         {productsActive} productos
