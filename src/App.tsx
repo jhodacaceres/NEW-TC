@@ -36,22 +36,30 @@ function App() {
       // Cargar productos
       const { data: productsData, error: productsError } = await supabase
         .from("products")
-        .select("*")
-        .order("name", { ascending: true });
+        .select("id, name, color, image, cost_price, profit_bob, ram, rom, processor, active, created_at, updated_at")
+        .eq("active", true)
+        .order("name", { ascending: true })
+        .limit(50); // Limitar productos iniciales
 
       if (productsError)
         console.error("Error fetching products:", productsError);
       else {
-        setProducts(productsData.filter((p) => p.active));
-        setProductsInactivesLength(
-          productsData.filter((p) => !p.active).length
-        );
+        setProducts(productsData || []);
+        
+        // Obtener conteo de productos inactivos por separado
+        const { count: inactiveCount } = await supabase
+          .from("products")
+          .select("*", { count: 'exact', head: true })
+          .eq("active", false);
+          
+        setProductsInactivesLength(inactiveCount || 0);
       }
 
       // Cargar tiendas
       const { data: storesData, error: storesError } = await supabase
         .from("stores")
-        .select("*");
+        .select("id, name, address")
+        .order("name", { ascending: true });
 
       if (storesError) console.error("Error fetching stores:", storesError);
       else setStores(storesData || []);
@@ -59,7 +67,9 @@ function App() {
       // Cargar empleados
       const { data: employeesData, error: employeesError } = await supabase
         .from("employees")
-        .select("*");
+        .select("id, first_name, last_name, position, store_id")
+        .eq("active", true)
+        .order("first_name", { ascending: true });
 
       if (employeesError)
         console.error("Error fetching employees:", employeesError);

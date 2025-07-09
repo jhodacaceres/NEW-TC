@@ -11,10 +11,15 @@ export const Employees = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | undefined>();
   const [searchTerm, setSearchTerm] = useState('');
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+  const [offset, setOffset] = useState(0);
+  const [limitItems] = useState(10);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   // Obtener empleados y tiendas desde Supabase
   const fetchData = async () => {
     try {
+      setLoading(true);
       // Obtener empleados con información de tienda
       const { data: employeesData, error: employeesError } = await supabase
         .from('employees')
@@ -25,12 +30,19 @@ export const Employees = () => {
             name,
             address
           )
-        `);
+        `)
+        .order('first_name', { ascending: true })
+        .range(offset, offset + limitItems - 1);
 
       if (employeesError) {
         console.error('❌ Error al obtener empleados:', employeesError.message);
       } else {
-        setEmployees(employeesData || []);
+        if (offset === 0) {
+          setEmployees(employeesData || []);
+        } else {
+          setEmployees(prev => [...prev, ...(employeesData || [])]);
+        }
+        setHasMore((employeesData || []).length === limitItems);
       }
 
       // Obtener tiendas para el formulario
@@ -45,12 +57,14 @@ export const Employees = () => {
       }
     } catch (error) {
       console.error('❌ Error general:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [offset]);
 
   const handleSubmit = async (data: Partial<Employee>) => {
     try {
@@ -90,6 +104,8 @@ export const Employees = () => {
 
       setShowForm(false);
       setSelectedEmployee(undefined);
+      setOffset(0);
+      setEmployees([]);
       await fetchData(); // Refrescar lista
     } catch (error: any) {
       console.error('❌ Error al guardar empleado:', error.message);
@@ -113,6 +129,8 @@ export const Employees = () => {
         console.error('❌ Error al eliminar empleado:', error.message);
         alert('Error al eliminar empleado');
       } else {
+        setOffset(0);
+        setEmployees([]);
         await fetchData();
       }
     }
@@ -144,6 +162,11 @@ export const Employees = () => {
     );
   });
 
+  const loadMore = () => {
+    if (!loading && hasMore) {
+      setOffset(prev => prev + limitItems);
+    }
+  };
   return (
     <div className="space-y-6">
       {showForm ? (
@@ -299,6 +322,19 @@ export const Employees = () => {
                 </tbody>
               </table>
             </div>
+            
+            {/* Load More Button */}
+            {hasMore && !searchTerm && (
+              <div className="p-4 text-center border-t">
+                <button
+                  onClick={loadMore}
+                  disabled={loading}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Cargando...' : 'Cargar más empleados'}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Vista de cartas solo en móviles */}
@@ -373,6 +409,19 @@ export const Employees = () => {
                   </div>
                 </div>
               ))
+            )}
+            
+            {/* Load More Button for Mobile */}
+            {hasMore && !searchTerm && (
+              <div className="text-center">
+                <button
+                  onClick={loadMore}
+                  disabled={loading}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Cargando...' : 'Cargar más empleados'}
+                </button>
+              </div>
             )}
           </div>
         </>

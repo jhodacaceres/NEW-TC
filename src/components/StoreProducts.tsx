@@ -39,6 +39,9 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({
   const [newBarcode, setNewBarcode] = useState('');
   const [scanningForProduct, setScanningForProduct] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const [limitItems] = useState(20);
+  const [hasMore, setHasMore] = useState(true);
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
@@ -46,15 +49,16 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({
   useEffect(() => {
     fetchStoreProducts();
     fetchProductBarcodes();
-  }, [store.id]);
+  }, [store.id, offset]);
 
   const fetchStoreProducts = async () => {
     try {
       // Obtener productos únicos asignados a esta tienda
       const { data, error } = await supabase
         .from('product_barcodes_store')
-        .select('product_id')
-        .eq('store_id', store.id);
+        .select('product_id', { count: 'exact' })
+        .eq('store_id', store.id)
+        .range(offset, offset + limitItems - 1);
 
       if (error) throw error;
 
@@ -67,7 +71,13 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({
         created_at: new Date().toISOString(),
       }));
 
-      setStoreProducts(assignments);
+      if (offset === 0) {
+        setStoreProducts(assignments);
+      } else {
+        setStoreProducts(prev => [...prev, ...assignments]);
+      }
+      
+      setHasMore(uniqueProductIds.length === limitItems);
     } catch (error) {
       console.error('Error fetching store products:', error);
       toast.error('Error al cargar productos de la tienda');
@@ -80,8 +90,9 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({
     try {
       const { data, error } = await supabase
         .from('product_barcodes_store')
-        .select('*')
-        .eq('store_id', store.id);
+        .select('id, store_id, product_id, barcode, is_sold, created_at, sold_at')
+        .eq('store_id', store.id)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setProductBarcodes(data || []);
