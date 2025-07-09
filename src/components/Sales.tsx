@@ -82,6 +82,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [customerCellphone, setCustomerCellphone] = useState("");
   const [paymentType, setPaymentType] = useState("efectivo");
   const [totalAmount, setTotalAmount] = useState(0);
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
@@ -334,6 +335,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           quantity_products: selectedProducts.length,
           customer_name: customerName || null,
           customer_phone: customerPhone || null,
+          customer_cellphone: customerCellphone || null,
           sale_date: new Date().toISOString(),
         },
       ]);
@@ -371,6 +373,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       setSelectedProducts([]);
       setCustomerName("");
       setCustomerPhone("");
+      setCustomerCellphone("");
       setPaymentType("efectivo");
       setSearchTerm("");
       
@@ -411,7 +414,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   };
 
   // Función para generar factura POS térmica
-  const generatePOSInvoice = async (sale: Sale) => {
+  const generateTXTInvoice = async (sale: Sale) => {
     try {
       // Obtener productos de la venta
       const { data: saleProducts } = await supabase
@@ -423,171 +426,124 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         `)
         .eq("sale_id", sale.id);
 
-      const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: [80, 200] // Ancho 80mm, altura variable
-      });
-
-      // Configuración para impresora térmica POS
-      const pageWidth = 80;
-      const margin = 4;
-      const contentWidth = pageWidth - (margin * 2);
-      let yPos = 10;
-
-      // Función para centrar texto
-      const centerText = (text: string, y: number, fontSize = 10) => {
-        doc.setFontSize(fontSize);
-        const textWidth = doc.getTextWidth(text);
-        const x = (pageWidth - textWidth) / 2;
-        doc.text(text, x, y);
-      };
-
-      // Función para texto justificado
-      const justifyText = (left: string, right: string, y: number) => {
-        doc.setFontSize(8);
-        doc.text(left, margin, y);
-        const rightWidth = doc.getTextWidth(right);
-        doc.text(right, pageWidth - margin - rightWidth, y);
-      };
-
-      // Línea divisoria
-      const drawLine = (y: number) => {
-        doc.text("----------------------------------------", margin, y);
-      };
-
-      // ENCABEZADO
-      doc.setFont("helvetica", "bold");
-      centerText("TIENDAS MOVIL AXCEL", yPos, 12);
-      yPos += 6;
+      // Generar contenido TXT para impresora POS LR1100U
+      let txtContent = "";
       
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      centerText("Venta de equipos moviles", yPos);
-      yPos += 4;
-      centerText("NIT: 123456789", yPos);
-      yPos += 8;
-
-      drawLine(yPos);
-      yPos += 6;
-
+      // Función para centrar texto (48 caracteres de ancho para LR1100U)
+      const centerText = (text: string) => {
+        const width = 48;
+        const padding = Math.max(0, Math.floor((width - text.length) / 2));
+        return " ".repeat(padding) + text + "\n";
+      };
+      
+      // Función para justificar texto
+      const justifyText = (left: string, right: string) => {
+        const width = 48;
+        const totalLength = left.length + right.length;
+        const spaces = Math.max(1, width - totalLength);
+        return left + " ".repeat(spaces) + right + "\n";
+      };
+      
+      // Línea divisoria
+      const line = "================================================\n";
+      
+      // ENCABEZADO
+      txtContent += centerText("TIENDAS MOVIL AXCEL");
+      txtContent += centerText("Venta de equipos moviles");
+      txtContent += centerText("NIT: 123456789");
+      txtContent += "\n";
+      txtContent += line;
+      
       // INFORMACIÓN DE LA FACTURA
-      doc.setFont("helvetica", "bold");
-      centerText("FACTURA", yPos, 10);
-      yPos += 6;
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      justifyText("No:", sale.id.slice(-8).toUpperCase(), yPos);
-      yPos += 4;
-      justifyText("Fecha:", format(new Date(sale.sale_date), "dd/MM/yyyy"), yPos);
-      yPos += 4;
-      justifyText("Hora:", format(new Date(sale.sale_date), "HH:mm"), yPos);
-      yPos += 4;
-      justifyText("Vendedor:", `${sale.employees?.first_name} ${sale.employees?.last_name}`, yPos);
-      yPos += 4;
-      justifyText("Tienda:", sale.stores?.name || "N/A", yPos);
-      yPos += 6;
-
+      txtContent += centerText("FACTURA");
+      txtContent += "\n";
+      txtContent += justifyText("No:", sale.id.slice(-8).toUpperCase());
+      txtContent += justifyText("Fecha:", format(new Date(sale.sale_date), "dd/MM/yyyy"));
+      txtContent += justifyText("Hora:", format(new Date(sale.sale_date), "HH:mm"));
+      txtContent += justifyText("Vendedor:", `${sale.employees?.first_name} ${sale.employees?.last_name}`);
+      txtContent += justifyText("Tienda:", sale.stores?.name || "N/A");
+      txtContent += "\n";
+      
       // INFORMACIÓN DEL CLIENTE (si existe)
-      if (sale.customer_name || sale.customer_phone) {
-        drawLine(yPos);
-        yPos += 4;
-        doc.setFont("helvetica", "bold");
-        doc.text("CLIENTE:", margin, yPos);
-        yPos += 4;
-        doc.setFont("helvetica", "normal");
+      if (sale.customer_name || sale.customer_phone || sale.customer_cellphone) {
+        txtContent += line;
+        txtContent += "CLIENTE:\n";
         
         if (sale.customer_name) {
-          doc.text(`Nombre: ${sale.customer_name}`, margin, yPos);
-          yPos += 4;
+          txtContent += `Nombre: ${sale.customer_name}\n`;
         }
         if (sale.customer_phone) {
-          doc.text(`Telefono: ${sale.customer_phone}`, margin, yPos);
-          yPos += 4;
+          txtContent += `Telefono: ${sale.customer_phone}\n`;
         }
-        yPos += 2;
+        if (sale.customer_cellphone) {
+          txtContent += `Celular: ${sale.customer_cellphone}\n`;
+        }
+        txtContent += "\n";
       }
-
-      drawLine(yPos);
-      yPos += 4;
-
+      
+      txtContent += line;
+      
       // PRODUCTOS
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.text("PRODUCTOS:", margin, yPos);
-      yPos += 4;
-
-      doc.setFont("helvetica", "normal");
+      txtContent += "PRODUCTOS:\n\n";
+      
       (saleProducts || []).forEach((item: any, index: number) => {
         const finalPrice = item.products.cost_price * exchangeRate + item.products.profit_bob;
         
         // Nombre del producto
-        const productName = `${item.products.name} - ${item.products.color}`;
-        const lines = doc.splitTextToSize(productName, contentWidth);
-        lines.forEach((line: string) => {
-          doc.text(line, margin, yPos);
-          yPos += 3;
-        });
+        txtContent += `${index + 1}. ${item.products.name} - ${item.products.color}\n`;
         
         // Código de barras
-        doc.text(`Cod: ${item.product_barcodes_store?.barcode || "N/A"}`, margin, yPos);
-        yPos += 3;
+        txtContent += `   Cod: ${item.product_barcodes_store?.barcode || "N/A"}\n`;
         
         // Códigos MEI (si existen)
         if (item.mei_codes && item.mei_codes.length > 0) {
           item.mei_codes.forEach((mei: string, idx: number) => {
-            doc.text(`MEI${idx + 1}: ${mei}`, margin, yPos);
-            yPos += 3;
+            txtContent += `   MEI${idx + 1}: ${mei}\n`;
           });
         }
         
         // Precio
-        justifyText("Precio:", `${Math.round(finalPrice)} Bs.`, yPos);
-        yPos += 5;
+        txtContent += justifyText("   Precio:", `${Math.round(finalPrice)} Bs.`);
+        txtContent += "\n";
       });
-
-      drawLine(yPos);
-      yPos += 4;
-
+      
+      txtContent += line;
+      
       // TOTALES
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      justifyText("TOTAL:", `${sale.total_sale} Bs.`, yPos);
-      yPos += 6;
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      justifyText("Forma de pago:", sale.type_of_payment.toUpperCase(), yPos);
-      yPos += 6;
-
-      drawLine(yPos);
-      yPos += 6;
-
+      txtContent += justifyText("TOTAL:", `${sale.total_sale} Bs.`);
+      txtContent += "\n";
+      txtContent += justifyText("Forma de pago:", sale.type_of_payment.toUpperCase());
+      txtContent += "\n";
+      txtContent += line;
+      
       // PIE DE PÁGINA
-      doc.setFontSize(7);
-      centerText("¡Gracias por su compra!", yPos);
-      yPos += 4;
-      centerText("Garantia de 12 meses", yPos);
-      yPos += 4;
-      centerText("Solo defectos de fabrica", yPos);
-      yPos += 6;
-      centerText(`${format(new Date(), "dd/MM/yyyy HH:mm")}`, yPos);
-
-      // Ajustar altura del documento
-      const finalHeight = yPos + 10;
-      doc.internal.pageSize.height = finalHeight;
-
-      doc.save(`factura_pos_${sale.id.slice(-8)}.pdf`);
-      toast.success("Factura POS generada exitosamente");
+      txtContent += centerText("¡Gracias por su compra!");
+      txtContent += centerText("Garantia de 12 meses");
+      txtContent += centerText("Solo defectos de fabrica");
+      txtContent += "\n";
+      txtContent += centerText(format(new Date(), "dd/MM/yyyy HH:mm"));
+      txtContent += "\n\n\n"; // Espacios finales para corte de papel
+      
+      // Crear y descargar archivo TXT
+      const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `factura_${sale.id.slice(-8)}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success("Factura TXT generada exitosamente");
     } catch (error) {
-      console.error("Error generating POS invoice:", error);
-      toast.error("Error al generar la factura POS");
+      console.error("Error generating TXT invoice:", error);
+      toast.error("Error al generar la factura TXT");
     }
   };
 
   // Función para generar garantía POS térmica
-  const generatePOSWarranty = async (sale: Sale) => {
+  const generateTXTWarranty = async (sale: Sale) => {
     try {
       // Obtener productos de la venta
       const { data: saleProducts } = await supabase
@@ -599,130 +555,83 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         `)
         .eq("sale_id", sale.id);
 
-      const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: [80, 250] // Ancho 80mm, altura variable para garantía
-      });
-
-      const pageWidth = 80;
-      const margin = 4;
-      const contentWidth = pageWidth - (margin * 2);
-      let yPos = 10;
-
-      // Función para centrar texto
-      const centerText = (text: string, y: number, fontSize = 10) => {
-        doc.setFontSize(fontSize);
-        const textWidth = doc.getTextWidth(text);
-        const x = (pageWidth - textWidth) / 2;
-        doc.text(text, x, y);
-      };
-
-      // Función para texto justificado
-      const justifyText = (left: string, right: string, y: number) => {
-        doc.setFontSize(8);
-        doc.text(left, margin, y);
-        const rightWidth = doc.getTextWidth(right);
-        doc.text(right, pageWidth - margin - rightWidth, y);
-      };
-
-      // Línea divisoria
-      const drawLine = (y: number) => {
-        doc.text("----------------------------------------", margin, y);
-      };
-
-      // ENCABEZADO
-      doc.setFont("helvetica", "bold");
-      centerText("TIENDAS MOVIL AXCEL", yPos, 12);
-      yPos += 6;
+      // Generar contenido TXT para garantía
+      let txtContent = "";
       
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      centerText("Venta de equipos moviles", yPos);
-      yPos += 8;
-
-      doc.setFont("helvetica", "bold");
-      centerText("CERTIFICADO DE GARANTIA", yPos, 10);
-      yPos += 8;
-
-      drawLine(yPos);
-      yPos += 4;
-
+      // Función para centrar texto (48 caracteres de ancho para LR1100U)
+      const centerText = (text: string) => {
+        const width = 48;
+        const padding = Math.max(0, Math.floor((width - text.length) / 2));
+        return " ".repeat(padding) + text + "\n";
+      };
+      
+      // Función para justificar texto
+      const justifyText = (left: string, right: string) => {
+        const width = 48;
+        const totalLength = left.length + right.length;
+        const spaces = Math.max(1, width - totalLength);
+        return left + " ".repeat(spaces) + right + "\n";
+      };
+      
+      // Línea divisoria
+      const line = "================================================\n";
+      
+      // ENCABEZADO
+      txtContent += centerText("TIENDAS MOVIL AXCEL");
+      txtContent += centerText("Venta de equipos moviles");
+      txtContent += "\n";
+      txtContent += centerText("CERTIFICADO DE GARANTIA");
+      txtContent += "\n";
+      txtContent += line;
+      
       // INFORMACIÓN DE LA GARANTÍA
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      justifyText("Garantia No:", sale.id.slice(-8).toUpperCase(), yPos);
-      yPos += 4;
-      justifyText("Fecha compra:", format(new Date(sale.sale_date), "dd/MM/yyyy"), yPos);
-      yPos += 4;
-      justifyText("Vendedor:", `${sale.employees?.first_name} ${sale.employees?.last_name}`, yPos);
-      yPos += 6;
-
+      txtContent += justifyText("Garantia No:", sale.id.slice(-8).toUpperCase());
+      txtContent += justifyText("Fecha compra:", format(new Date(sale.sale_date), "dd/MM/yyyy"));
+      txtContent += justifyText("Vendedor:", `${sale.employees?.first_name} ${sale.employees?.last_name}`);
+      txtContent += "\n";
+      
       // INFORMACIÓN DEL CLIENTE
-      if (sale.customer_name || sale.customer_phone) {
-        doc.setFont("helvetica", "bold");
-        doc.text("CLIENTE:", margin, yPos);
-        yPos += 4;
-        doc.setFont("helvetica", "normal");
+      if (sale.customer_name || sale.customer_phone || sale.customer_cellphone) {
+        txtContent += "CLIENTE:\n";
         
         if (sale.customer_name) {
-          doc.text(`${sale.customer_name}`, margin, yPos);
-          yPos += 4;
+          txtContent += `${sale.customer_name}\n`;
         }
         if (sale.customer_phone) {
-          doc.text(`Tel: ${sale.customer_phone}`, margin, yPos);
-          yPos += 4;
+          txtContent += `Tel: ${sale.customer_phone}\n`;
         }
-        yPos += 2;
+        if (sale.customer_cellphone) {
+          txtContent += `Cel: ${sale.customer_cellphone}\n`;
+        }
+        txtContent += "\n";
       }
-
-      drawLine(yPos);
-      yPos += 4;
-
+      
+      txtContent += line;
+      
       // PRODUCTOS BAJO GARANTÍA
-      doc.setFont("helvetica", "bold");
-      doc.text("PRODUCTOS BAJO GARANTIA:", margin, yPos);
-      yPos += 4;
-
-      doc.setFont("helvetica", "normal");
+      txtContent += "PRODUCTOS BAJO GARANTIA:\n\n";
+      
       (saleProducts || []).forEach((item: any, index: number) => {
         // Nombre y especificaciones
-        const productInfo = `${index + 1}. ${item.products.name}`;
-        const lines = doc.splitTextToSize(productInfo, contentWidth);
-        lines.forEach((line: string) => {
-          doc.text(line, margin, yPos);
-          yPos += 3;
-        });
-        
-        doc.text(`Color: ${item.products.color}`, margin + 3, yPos);
-        yPos += 3;
-        doc.text(`${item.products.ram}GB RAM, ${item.products.rom}GB ROM`, margin + 3, yPos);
-        yPos += 3;
-        doc.text(`${item.products.processor}`, margin + 3, yPos);
-        yPos += 3;
-        doc.text(`Cod: ${item.product_barcodes_store?.barcode || "N/A"}`, margin + 3, yPos);
-        yPos += 3;
+        txtContent += `${index + 1}. ${item.products.name}\n`;
+        txtContent += `   Color: ${item.products.color}\n`;
+        txtContent += `   ${item.products.ram}GB RAM, ${item.products.rom}GB ROM\n`;
+        txtContent += `   ${item.products.processor}\n`;
+        txtContent += `   Cod: ${item.product_barcodes_store?.barcode || "N/A"}\n`;
         
         // Códigos MEI
         if (item.mei_codes && item.mei_codes.length > 0) {
           item.mei_codes.forEach((mei: string, idx: number) => {
-            doc.text(`MEI${idx + 1}: ${mei}`, margin + 3, yPos);
-            yPos += 3;
+            txtContent += `   MEI${idx + 1}: ${mei}\n`;
           });
         }
-        yPos += 2;
+        txtContent += "\n";
       });
-
-      drawLine(yPos);
-      yPos += 4;
-
+      
+      txtContent += line;
+      
       // TÉRMINOS DE GARANTÍA
-      doc.setFont("helvetica", "bold");
-      doc.text("TERMINOS DE GARANTIA:", margin, yPos);
-      yPos += 4;
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
+      txtContent += "TERMINOS DE GARANTIA:\n\n";
       
       const terms = [
         "• Garantia valida por 12 meses",
@@ -734,45 +643,40 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         "• Presentar este comprobante",
         "• Garantia solo en tienda"
       ];
-
+      
       terms.forEach(term => {
-        const termLines = doc.splitTextToSize(term, contentWidth);
-        termLines.forEach((line: string) => {
-          doc.text(line, margin, yPos);
-          yPos += 3;
-        });
+        txtContent += term + "\n";
       });
-
-      yPos += 4;
-      drawLine(yPos);
-      yPos += 6;
-
+      
+      txtContent += "\n";
+      txtContent += line;
+      
       // FIRMA DEL CLIENTE
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.text("FIRMA DEL CLIENTE:", margin, yPos);
-      yPos += 8;
-      doc.text("_________________________", margin, yPos);
-      yPos += 8;
-
+      txtContent += "FIRMA DEL CLIENTE:\n\n";
+      txtContent += "_________________________________\n\n";
+      
       // PIE DE PÁGINA
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "normal");
-      centerText("Conserve este documento", yPos);
-      yPos += 4;
-      centerText("Es su comprobante de garantia", yPos);
-      yPos += 6;
-      centerText(`Impreso: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, yPos);
-
-      // Ajustar altura del documento
-      const finalHeight = yPos + 10;
-      doc.internal.pageSize.height = finalHeight;
-
-      doc.save(`garantia_pos_${sale.id.slice(-8)}.pdf`);
-      toast.success("Garantía POS generada exitosamente");
+      txtContent += centerText("Conserve este documento");
+      txtContent += centerText("Es su comprobante de garantia");
+      txtContent += "\n";
+      txtContent += centerText(`Impreso: ${format(new Date(), "dd/MM/yyyy HH:mm")}`);
+      txtContent += "\n\n\n"; // Espacios finales para corte de papel
+      
+      // Crear y descargar archivo TXT
+      const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `garantia_${sale.id.slice(-8)}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success("Garantía TXT generada exitosamente");
     } catch (error) {
-      console.error("Error generating POS warranty:", error);
-      toast.error("Error al generar la garantía POS");
+      console.error("Error generating TXT warranty:", error);
+      toast.error("Error al generar la garantía TXT");
     }
   };
 
@@ -994,6 +898,19 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Celular del Cliente (Opcional)
+            </label>
+            <input
+              type="tel"
+              value={customerCellphone}
+              onChange={(e) => setCustomerCellphone(e.target.value)}
+              placeholder="Ingrese el celular del cliente"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
         </div>
 
         {/* Información de pago */}
@@ -1189,16 +1106,16 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                           </>
                         )}
                         <button
-                          onClick={() => generatePOSInvoice(sale)}
+                          onClick={() => generateTXTInvoice(sale)}
                           className="text-green-600 hover:text-green-800"
-                          title="Factura POS"
+                          title="Factura TXT"
                         >
                           <Printer size={16} />
                         </button>
                         <button
-                          onClick={() => generatePOSWarranty(sale)}
+                          onClick={() => generateTXTWarranty(sale)}
                           className="text-purple-600 hover:text-purple-800"
-                          title="Garantía POS"
+                          title="Garantía TXT"
                         >
                           <Printer size={16} />
                         </button>
@@ -1235,13 +1152,13 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                       </button>
                     )}
                     <button
-                      onClick={() => generatePOSInvoice(sale)}
+                      onClick={() => generateTXTInvoice(sale)}
                       className="text-green-600 hover:text-green-800"
                     >
                       <Printer size={16} />
                     </button>
                     <button
-                      onClick={() => generatePOSWarranty(sale)}
+                      onClick={() => generateTXTWarranty(sale)}
                       className="text-purple-600 hover:text-purple-800"
                     >
                       <Printer size={16} />
@@ -1253,6 +1170,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                   <div>
                     <span className="text-gray-600">Cliente:</span> {sale.customer_name || "Sin nombre"}
                     {sale.customer_phone && <span className="text-gray-500"> (Tel: {sale.customer_phone})</span>}
+                    {sale.customer_cellphone && <span className="text-gray-500"> (Cel: {sale.customer_cellphone})</span>}
                   </div>
                   <div>
                     <span className="text-gray-600">Productos:</span> {sale.quantity_products}

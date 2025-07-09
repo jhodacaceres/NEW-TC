@@ -53,6 +53,17 @@ export interface Sale {
   type_of_payment?: string;
   quantity_products?: number;
   sale_date: string;
+  customer_name?: string;
+  customer_phone?: string;
+  customer_cellphone?: string;
+  store_id?: string;
+  employees?: {
+    first_name: string;
+    last_name: string;
+  };
+  stores?: {
+    name: string;
+  };
 }
 
 export interface SaleProduct {
