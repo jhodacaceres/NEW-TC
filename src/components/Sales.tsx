@@ -83,7 +83,6 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerCellphone, setCustomerCellphone] = useState("");
-  const [customerCellphone, setCustomerCellphone] = useState("");
   const [paymentType, setPaymentType] = useState("efectivo");
   const [totalAmount, setTotalAmount] = useState(0);
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
