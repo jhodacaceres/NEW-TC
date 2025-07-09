@@ -55,7 +55,6 @@ export interface Sale {
   sale_date: string;
   customer_name?: string;
   customer_phone?: string;
-  customer_cellphone?: string;
   store_id?: string;
   employees?: {
     first_name: string;
