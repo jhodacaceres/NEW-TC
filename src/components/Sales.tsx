@@ -59,7 +59,7 @@ interface Sale {
   type_of_payment: string;
   quantity_products: number;
   customer_name?: string;
-  customer_phone?: string;
+  customer_ci?: string;
   store_id: string;
   employee_id: string;
   employees?: {
@@ -81,8 +81,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const [availableProducts, setAvailableProducts] = useState<ProductBarcode[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [customerCellphone, setCustomerCellphone] = useState("");
+  const [customerCI, setCustomerCI] = useState("");
   const [paymentType, setPaymentType] = useState("efectivo");
   const [totalAmount, setTotalAmount] = useState(0);
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
@@ -334,9 +333,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           type_of_payment: paymentType,
           quantity_products: selectedProducts.length,
           customer_name: customerName || null,
-          customer_phone: customerPhone || null,
-          customer_cellphone: customerCellphone || null,
-          customer_cellphone: customerCellphone || null,
+          customer_ci: customerCI || null,
           sale_date: new Date().toISOString(),
         },
       ]);
@@ -373,9 +370,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       // Limpiar formulario
       setSelectedProducts([]);
       setCustomerName("");
-      setCustomerPhone("");
-      setCustomerCellphone("");
-      setCustomerCellphone("");
+      setCustomerCI("");
       setPaymentType("efectivo");
       setSearchTerm("");
       
@@ -415,7 +410,39 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     }
   };
 
-  // Función para generar factura POS térmica
+  // Función para imprimir directamente (sin descargar)
+  const printTXTContent = (content: string, title: string) => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>${title}</title>
+            <style>
+              body {
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+                line-height: 1.2;
+                margin: 0;
+                padding: 20px;
+                white-space: pre-wrap;
+              }
+              @media print {
+                body { margin: 0; padding: 10px; }
+              }
+            </style>
+          </head>
+          <body>${content}</body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    }
+  };
+
+  // Función para generar factura POS térmica mejorada
   const generateTXTInvoice = async (sale: Sale) => {
     try {
       // Obtener información de la tienda
@@ -435,10 +462,10 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         `)
         .eq("sale_id", sale.id);
 
-      // Generar contenido TXT para impresora POS LR1100U
+      // Generar contenido TXT para impresora POS
       let txtContent = "";
       
-      // Función para centrar texto (42 caracteres de ancho para mejor formato)
+      // Función para centrar texto (42 caracteres de ancho)
       const centerText = (text: string) => {
         const width = 42;
         const padding = Math.max(0, Math.floor((width - text.length) / 2));
@@ -453,7 +480,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         return left + " ".repeat(spaces) + right + "\n";
       };
       
-      // Función para texto en negrita (usando caracteres especiales)
+      // Función para texto en negrita
       const boldText = (text: string) => {
         return `**${text}**`;
       };
@@ -462,7 +489,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       const line = "==========================================\n";
       const doubleLine = "==========================================\n";
       
-      // ENCABEZADO CON LOGO (representado con texto)
+      // ENCABEZADO CON LOGO
       txtContent += centerText("╔══════════════════════════════════════╗");
       txtContent += centerText("║        TIENDAS MOVIL AXCEL           ║");
       txtContent += centerText("║      Venta de equipos móviles        ║");
@@ -476,7 +503,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       }
       txtContent += centerText("TEL: 422003");
       txtContent += centerText("COCHABAMBA - BOLIVIA");
-      txtContent += centerText("NIT: 123456789");
+      txtContent += centerText("NIT: 7255039");
       txtContent += "\n";
       txtContent += doubleLine;
       
@@ -487,23 +514,20 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       txtContent += "\n";
       
       txtContent += `LUGAR Y FECHA: Cochabamba, ${format(new Date(sale.sale_date), "dd/MM/yyyy")}\n`;
-      txtContent += `CODIGO: ${sale.id.slice(-8).toUpperCase()} / NIT: 123456789\n`;
+      txtContent += `CODIGO: ${sale.id.slice(-8).toUpperCase()} / NIT: 7255039\n`;
       txtContent += `VENDEDOR: ${sale.employees?.first_name} ${sale.employees?.last_name}\n`;
       txtContent += "\n";
       
       // INFORMACIÓN DEL CLIENTE (si existe)
-      if (sale.customer_name || sale.customer_phone || sale.customer_cellphone) {
+      if (sale.customer_name || sale.customer_ci) {
         txtContent += line;
         txtContent += boldText("DATOS DEL CLIENTE:") + "\n";
         
         if (sale.customer_name) {
           txtContent += `SEÑOR(ES): ${sale.customer_name.toUpperCase()}\n`;
         }
-        if (sale.customer_phone) {
-          txtContent += `TELÉFONO: ${sale.customer_phone}\n`;
-        }
-        if (sale.customer_cellphone) {
-          txtContent += `CELULAR: ${sale.customer_cellphone}\n`;
+        if (sale.customer_ci) {
+          txtContent += `C.I.: ${sale.customer_ci}\n`;
         }
         txtContent += "\n";
       }
@@ -528,7 +552,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         // Información adicional del producto
         txtContent += `│    │ COD: ${(item.product_barcodes_store?.barcode || "N/A").padEnd(15)} │    │         │\n`;
         
-        // Códigos MEI (si existen)
+        // Códigos MEI ordenados (MEI1, MEI2, etc.)
         if (item.mei_codes && item.mei_codes.length > 0) {
           item.mei_codes.forEach((mei: string, idx: number) => {
             const meiText = `MEI${idx + 1}: ${mei}`.substring(0, 19);
@@ -560,25 +584,17 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       txtContent += centerText(`Impreso: ${format(new Date(), "dd/MM/yyyy HH:mm:ss")}`);
       txtContent += "\n\n\n"; // Espacios finales para corte de papel
       
-      // Crear y descargar archivo TXT
-      const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `factura_${sale.id.slice(-8)}.txt`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      // Imprimir directamente
+      printTXTContent(txtContent, `Factura ${sale.id.slice(-8)}`);
       
-      toast.success("Factura TXT generada exitosamente");
+      toast.success("Factura enviada a impresión");
     } catch (error) {
       console.error("Error generating TXT invoice:", error);
-      toast.error("Error al generar la factura TXT");
+      toast.error("Error al generar la factura");
     }
   };
 
-  // Función para generar garantía POS térmica
+  // Función para generar garantía POS térmica mejorada
   const generateTXTWarranty = async (sale: Sale) => {
     try {
       // Obtener información de la tienda
@@ -625,12 +641,13 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       const line = "==========================================\n";
       const doubleLine = "==========================================\n";
       
-      // ENCABEZADO ESTILO ARELIZCELL
+      // ENCABEZADO
       txtContent += centerText("TIENDAS MOVIL AXCEL");
       txtContent += "\n";
       
       // Información de la tienda
       if (storeData) {
+        txtContent += centerText(storeData.name.toUpperCase());
         const addressLines = storeData.address.split(',');
         addressLines.forEach(line => {
           txtContent += centerText(line.trim().toUpperCase());
@@ -639,6 +656,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       txtContent += centerText("TEL 422003");
       txtContent += centerText("COCHABAMBA");
       txtContent += centerText("BOLIVIA");
+      txtContent += centerText("NIT: 7255039");
       txtContent += "\n";
       
       txtContent += centerText(boldText("CERTIFICADO"));
@@ -653,8 +671,11 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       txtContent += `LUGAR Y FECHA: Cochabamba, ${format(new Date(sale.sale_date), "dd/MM/yyyy")}\n`;
       txtContent += `CODIGO: ${sale.id.slice(-8).toUpperCase()} / NIT: 7255039\n`;
       
-      if (sale.customer_name || sale.customer_phone || sale.customer_cellphone) {
+      if (sale.customer_name || sale.customer_ci) {
         txtContent += `SEÑOR(ES): ${(sale.customer_name || 'CLIENTE').toUpperCase()}\n`;
+        if (sale.customer_ci) {
+          txtContent += `C.I.: ${sale.customer_ci}\n`;
+        }
       }
       
       txtContent += "\n";
@@ -683,7 +704,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       
       txtContent += doubleLine;
       
-      // TABLA DE PRODUCTOS ESTILO FORMAL
+      // TABLA DE PRODUCTOS
       txtContent += centerText(boldText("INFORMACIÓN DEL PRODUCTO"));
       txtContent += "\n";
       txtContent += "┌────┬─────────────────────┬────┬─────────┐\n";
@@ -697,10 +718,10 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         
         txtContent += `│ ${itemNum}  │ ${description.padEnd(19)} │1.00│${barcode.padStart(8)} │\n`;
         
-        // Códigos MEI
+        // Códigos MEI ordenados (MEI1, MEI2, etc.)
         if (item.mei_codes && item.mei_codes.length > 0) {
           item.mei_codes.forEach((mei: string, idx: number) => {
-            const meiCode = mei.substring(0, 7);
+            const meiCode = `MEI${idx + 1}:${mei}`.substring(0, 7);
             txtContent += `│    │                     │    │${meiCode.padStart(8)} │\n`;
           });
         }
@@ -738,21 +759,13 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       txtContent += centerText(`Impreso: ${format(new Date(), "dd/MM/yyyy HH:mm:ss")}`);
       txtContent += "\n\n\n"; // Espacios finales para corte de papel
       
-      // Crear y descargar archivo TXT
-      const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `garantia_${sale.id.slice(-8)}.txt`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      // Imprimir directamente
+      printTXTContent(txtContent, `Garantía ${sale.id.slice(-8)}`);
       
-      toast.success("Garantía TXT generada exitosamente");
+      toast.success("Garantía enviada a impresión");
     } catch (error) {
       console.error("Error generating TXT warranty:", error);
-      toast.error("Error al generar la garantía TXT");
+      toast.error("Error al generar la garantía");
     }
   };
 
@@ -964,39 +977,13 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Celular del Cliente (Opcional)
+              C.I. del Cliente (Opcional)
             </label>
             <input
-              type="tel"
-              value={customerCellphone}
-              onChange={(e) => setCustomerCellphone(e.target.value)}
-              placeholder="Ingrese el celular del cliente"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Teléfono del Cliente (Opcional)
-            </label>
-            <input
-              type="tel"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              placeholder="Ingrese el teléfono del cliente"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Celular del Cliente (Opcional)
-            </label>
-            <input
-              type="tel"
-              value={customerCellphone}
-              onChange={(e) => setCustomerCellphone(e.target.value)}
-              placeholder="Ingrese el celular del cliente"
+              type="text"
+              value={customerCI}
+              onChange={(e) => setCustomerCI(e.target.value)}
+              placeholder="Ingrese el C.I. del cliente"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -1121,8 +1108,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {sale.customer_name || "Sin nombre"}
-                      {sale.customer_phone && (
-                        <div className="text-xs text-gray-500">Tel: {sale.customer_phone}</div>
+                      {sale.customer_ci && (
+                        <div className="text-xs text-gray-500">C.I.: {sale.customer_ci}</div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -1197,14 +1184,14 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                         <button
                           onClick={() => generateTXTInvoice(sale)}
                           className="text-green-600 hover:text-green-800"
-                          title="Factura TXT"
+                          title="Imprimir Factura"
                         >
                           <Printer size={16} />
                         </button>
                         <button
                           onClick={() => generateTXTWarranty(sale)}
                           className="text-purple-600 hover:text-purple-800"
-                          title="Garantía TXT"
+                          title="Imprimir Garantía"
                         >
                           <Printer size={16} />
                         </button>
@@ -1258,9 +1245,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                 <div className="space-y-1 text-sm">
                   <div>
                     <span className="text-gray-600">Cliente:</span> {sale.customer_name || "Sin nombre"}
-                    {sale.customer_phone && <span className="text-gray-500"> (Tel: {sale.customer_phone})</span>}
-                    {sale.customer_cellphone && <span className="text-gray-500"> (Cel: {sale.customer_cellphone})</span>}
-                    {sale.customer_cellphone && <span className="text-gray-500"> (Cel: {sale.customer_cellphone})</span>}
+                    {sale.customer_ci && <span className="text-gray-500"> (C.I.: {sale.customer_ci})</span>}
                   </div>
                   <div>
                     <span className="text-gray-600">Productos:</span> {sale.quantity_products}
