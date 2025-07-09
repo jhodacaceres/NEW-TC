@@ -83,6 +83,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerCellphone, setCustomerCellphone] = useState("");
+  const [customerCellphone, setCustomerCellphone] = useState("");
   const [paymentType, setPaymentType] = useState("efectivo");
   const [totalAmount, setTotalAmount] = useState(0);
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
@@ -336,6 +337,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           customer_name: customerName || null,
           customer_phone: customerPhone || null,
           customer_cellphone: customerCellphone || null,
+          customer_cellphone: customerCellphone || null,
           sale_date: new Date().toISOString(),
         },
       ]);
@@ -373,6 +375,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       setSelectedProducts([]);
       setCustomerName("");
       setCustomerPhone("");
+      setCustomerCellphone("");
       setCustomerCellphone("");
       setPaymentType("efectivo");
       setSearchTerm("");
@@ -416,6 +419,13 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   // Función para generar factura POS térmica
   const generateTXTInvoice = async (sale: Sale) => {
     try {
+      // Obtener información de la tienda
+      const { data: storeData } = await supabase
+        .from("stores")
+        .select("name, address")
+        .eq("id", sale.store_id)
+        .single();
+
       // Obtener productos de la venta
       const { data: saleProducts } = await supabase
         .from("sale_product")
@@ -429,99 +439,126 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       // Generar contenido TXT para impresora POS LR1100U
       let txtContent = "";
       
-      // Función para centrar texto (48 caracteres de ancho para LR1100U)
+      // Función para centrar texto (42 caracteres de ancho para mejor formato)
       const centerText = (text: string) => {
-        const width = 48;
+        const width = 42;
         const padding = Math.max(0, Math.floor((width - text.length) / 2));
         return " ".repeat(padding) + text + "\n";
       };
       
       // Función para justificar texto
       const justifyText = (left: string, right: string) => {
-        const width = 48;
+        const width = 42;
         const totalLength = left.length + right.length;
         const spaces = Math.max(1, width - totalLength);
         return left + " ".repeat(spaces) + right + "\n";
       };
       
-      // Línea divisoria
-      const line = "================================================\n";
+      // Función para texto en negrita (usando caracteres especiales)
+      const boldText = (text: string) => {
+        return `**${text}**`;
+      };
       
-      // ENCABEZADO
-      txtContent += centerText("TIENDAS MOVIL AXCEL");
-      txtContent += centerText("Venta de equipos moviles");
+      // Línea divisoria
+      const line = "==========================================\n";
+      const doubleLine = "==========================================\n";
+      
+      // ENCABEZADO CON LOGO (representado con texto)
+      txtContent += centerText("╔══════════════════════════════════════╗");
+      txtContent += centerText("║        TIENDAS MOVIL AXCEL           ║");
+      txtContent += centerText("║      Venta de equipos móviles        ║");
+      txtContent += centerText("╚══════════════════════════════════════╝");
+      txtContent += "\n";
+      
+      // Información de la tienda
+      if (storeData) {
+        txtContent += centerText(storeData.name.toUpperCase());
+        txtContent += centerText(storeData.address);
+      }
+      txtContent += centerText("TEL: 422003");
+      txtContent += centerText("COCHABAMBA - BOLIVIA");
       txtContent += centerText("NIT: 123456789");
       txtContent += "\n";
-      txtContent += line;
+      txtContent += doubleLine;
       
       // INFORMACIÓN DE LA FACTURA
-      txtContent += centerText("FACTURA");
+      txtContent += centerText(boldText("FACTURA DE VENTA"));
+      txtContent += centerText(`Nº ${sale.id.slice(-8).toUpperCase()}`);
+      txtContent += centerText(format(new Date(sale.sale_date), "dd/MM/yyyy HH:mm:ss"));
       txtContent += "\n";
-      txtContent += justifyText("No:", sale.id.slice(-8).toUpperCase());
-      txtContent += justifyText("Fecha:", format(new Date(sale.sale_date), "dd/MM/yyyy"));
-      txtContent += justifyText("Hora:", format(new Date(sale.sale_date), "HH:mm"));
-      txtContent += justifyText("Vendedor:", `${sale.employees?.first_name} ${sale.employees?.last_name}`);
-      txtContent += justifyText("Tienda:", sale.stores?.name || "N/A");
+      
+      txtContent += `LUGAR Y FECHA: Cochabamba, ${format(new Date(sale.sale_date), "dd/MM/yyyy")}\n`;
+      txtContent += `CODIGO: ${sale.id.slice(-8).toUpperCase()} / NIT: 123456789\n`;
+      txtContent += `VENDEDOR: ${sale.employees?.first_name} ${sale.employees?.last_name}\n`;
       txtContent += "\n";
       
       // INFORMACIÓN DEL CLIENTE (si existe)
       if (sale.customer_name || sale.customer_phone || sale.customer_cellphone) {
         txtContent += line;
-        txtContent += "CLIENTE:\n";
+        txtContent += boldText("DATOS DEL CLIENTE:") + "\n";
         
         if (sale.customer_name) {
-          txtContent += `Nombre: ${sale.customer_name}\n`;
+          txtContent += `SEÑOR(ES): ${sale.customer_name.toUpperCase()}\n`;
         }
         if (sale.customer_phone) {
-          txtContent += `Telefono: ${sale.customer_phone}\n`;
+          txtContent += `TELÉFONO: ${sale.customer_phone}\n`;
         }
         if (sale.customer_cellphone) {
-          txtContent += `Celular: ${sale.customer_cellphone}\n`;
+          txtContent += `CELULAR: ${sale.customer_cellphone}\n`;
         }
         txtContent += "\n";
       }
       
-      txtContent += line;
+      txtContent += doubleLine;
       
-      // PRODUCTOS
-      txtContent += "PRODUCTOS:\n\n";
+      // TABLA DE PRODUCTOS
+      txtContent += centerText(boldText("INFORMACIÓN DEL PRODUCTO"));
+      txtContent += "\n";
+      txtContent += "┌────┬─────────────────────┬────┬─────────┐\n";
+      txtContent += "│ITEM│    DESCRIPCIÓN      │CANT│  PRECIO │\n";
+      txtContent += "├────┼─────────────────────┼────┼─────────┤\n";
       
       (saleProducts || []).forEach((item: any, index: number) => {
         const finalPrice = item.products.cost_price * exchangeRate + item.products.profit_bob;
+        const itemNum = (index + 1).toString().padStart(2, '0');
+        const description = `${item.products.name} ${item.products.color}`.substring(0, 19);
+        const price = `${Math.round(finalPrice)} Bs.`;
         
-        // Nombre del producto
-        txtContent += `${index + 1}. ${item.products.name} - ${item.products.color}\n`;
+        txtContent += `│ ${itemNum} │ ${description.padEnd(19)} │ 1  │${price.padStart(8)} │\n`;
         
-        // Código de barras
-        txtContent += `   Cod: ${item.product_barcodes_store?.barcode || "N/A"}\n`;
+        // Información adicional del producto
+        txtContent += `│    │ COD: ${(item.product_barcodes_store?.barcode || "N/A").padEnd(15)} │    │         │\n`;
         
         // Códigos MEI (si existen)
         if (item.mei_codes && item.mei_codes.length > 0) {
           item.mei_codes.forEach((mei: string, idx: number) => {
-            txtContent += `   MEI${idx + 1}: ${mei}\n`;
+            const meiText = `MEI${idx + 1}: ${mei}`.substring(0, 19);
+            txtContent += `│    │ ${meiText.padEnd(19)} │    │         │\n`;
           });
         }
-        
-        // Precio
-        txtContent += justifyText("   Precio:", `${Math.round(finalPrice)} Bs.`);
-        txtContent += "\n";
       });
       
-      txtContent += line;
+      txtContent += "└────┴─────────────────────┴────┴─────────┘\n";
+      txtContent += "\n";
       
       // TOTALES
-      txtContent += justifyText("TOTAL:", `${sale.total_sale} Bs.`);
+      txtContent += doubleLine;
+      txtContent += justifyText(boldText("TOTAL A PAGAR:"), boldText(`${sale.total_sale} Bs.`));
       txtContent += "\n";
-      txtContent += justifyText("Forma de pago:", sale.type_of_payment.toUpperCase());
+      txtContent += justifyText("FORMA DE PAGO:", sale.type_of_payment.toUpperCase());
       txtContent += "\n";
-      txtContent += line;
+      txtContent += doubleLine;
       
       // PIE DE PÁGINA
-      txtContent += centerText("¡Gracias por su compra!");
-      txtContent += centerText("Garantia de 12 meses");
-      txtContent += centerText("Solo defectos de fabrica");
+      txtContent += centerText(boldText("¡GRACIAS POR SU COMPRA!"));
       txtContent += "\n";
-      txtContent += centerText(format(new Date(), "dd/MM/yyyy HH:mm"));
+      txtContent += centerText("GARANTÍA DE 12 MESES");
+      txtContent += centerText("SOLO DEFECTOS DE FÁBRICA");
+      txtContent += "\n";
+      txtContent += centerText("CONSERVE ESTE DOCUMENTO");
+      txtContent += centerText("PARA CUALQUIER RECLAMO");
+      txtContent += "\n";
+      txtContent += centerText(`Impreso: ${format(new Date(), "dd/MM/yyyy HH:mm:ss")}`);
       txtContent += "\n\n\n"; // Espacios finales para corte de papel
       
       // Crear y descargar archivo TXT
@@ -545,6 +582,13 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   // Función para generar garantía POS térmica
   const generateTXTWarranty = async (sale: Sale) => {
     try {
+      // Obtener información de la tienda
+      const { data: storeData } = await supabase
+        .from("stores")
+        .select("name, address")
+        .eq("id", sale.store_id)
+        .single();
+
       // Obtener productos de la venta
       const { data: saleProducts } = await supabase
         .from("sale_product")
@@ -558,108 +602,141 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       // Generar contenido TXT para garantía
       let txtContent = "";
       
-      // Función para centrar texto (48 caracteres de ancho para LR1100U)
+      // Función para centrar texto (42 caracteres de ancho)
       const centerText = (text: string) => {
-        const width = 48;
+        const width = 42;
         const padding = Math.max(0, Math.floor((width - text.length) / 2));
         return " ".repeat(padding) + text + "\n";
       };
       
       // Función para justificar texto
       const justifyText = (left: string, right: string) => {
-        const width = 48;
+        const width = 42;
         const totalLength = left.length + right.length;
         const spaces = Math.max(1, width - totalLength);
         return left + " ".repeat(spaces) + right + "\n";
       };
       
-      // Línea divisoria
-      const line = "================================================\n";
+      // Función para texto en negrita
+      const boldText = (text: string) => {
+        return `**${text}**`;
+      };
       
-      // ENCABEZADO
+      // Línea divisoria
+      const line = "==========================================\n";
+      const doubleLine = "==========================================\n";
+      
+      // ENCABEZADO ESTILO ARELIZCELL
       txtContent += centerText("TIENDAS MOVIL AXCEL");
-      txtContent += centerText("Venta de equipos moviles");
       txtContent += "\n";
-      txtContent += centerText("CERTIFICADO DE GARANTIA");
+      
+      // Información de la tienda
+      if (storeData) {
+        const addressLines = storeData.address.split(',');
+        addressLines.forEach(line => {
+          txtContent += centerText(line.trim().toUpperCase());
+        });
+      }
+      txtContent += centerText("TEL 422003");
+      txtContent += centerText("COCHABAMBA");
+      txtContent += centerText("BOLIVIA");
       txtContent += "\n";
-      txtContent += line;
+      
+      txtContent += centerText(boldText("CERTIFICADO"));
+      txtContent += centerText(boldText("DE GARANTIA"));
+      txtContent += centerText(`Nº ${sale.id.slice(-8).toUpperCase()}`);
+      txtContent += centerText(format(new Date(sale.sale_date), "dd/MM/yyyy HH:mm:ss"));
+      txtContent += "\n";
+      
+      txtContent += doubleLine;
       
       // INFORMACIÓN DE LA GARANTÍA
-      txtContent += justifyText("Garantia No:", sale.id.slice(-8).toUpperCase());
-      txtContent += justifyText("Fecha compra:", format(new Date(sale.sale_date), "dd/MM/yyyy"));
-      txtContent += justifyText("Vendedor:", `${sale.employees?.first_name} ${sale.employees?.last_name}`);
-      txtContent += "\n";
+      txtContent += `LUGAR Y FECHA: Cochabamba, ${format(new Date(sale.sale_date), "dd/MM/yyyy")}\n`;
+      txtContent += `CODIGO: ${sale.id.slice(-8).toUpperCase()} / NIT: 7255039\n`;
       
-      // INFORMACIÓN DEL CLIENTE
       if (sale.customer_name || sale.customer_phone || sale.customer_cellphone) {
-        txtContent += "CLIENTE:\n";
-        
-        if (sale.customer_name) {
-          txtContent += `${sale.customer_name}\n`;
-        }
-        if (sale.customer_phone) {
-          txtContent += `Tel: ${sale.customer_phone}\n`;
-        }
-        if (sale.customer_cellphone) {
-          txtContent += `Cel: ${sale.customer_cellphone}\n`;
-        }
-        txtContent += "\n";
+        txtContent += `SEÑOR(ES): ${(sale.customer_name || 'CLIENTE').toUpperCase()}\n`;
       }
       
-      txtContent += line;
+      txtContent += "\n";
       
-      // PRODUCTOS BAJO GARANTÍA
-      txtContent += "PRODUCTOS BAJO GARANTIA:\n\n";
+      // ADVERTENCIA IMPORTANTE
+      txtContent += "Recuerde que no habrá ningun tipo de garantia si\n";
+      txtContent += "el dispositivo presenta problemas tecnicos\n";
+      txtContent += "producidos por instalación de programas,\n";
+      txtContent += "actualizaciones, archivos y/o virus que afecte a su\n";
+      txtContent += "normal funcionamiento. Dir. Garantias. OP.\n";
+      txtContent += "CENTRAL: C. Ecuador #174 entre Ayacucho y\n";
+      txtContent += "Junin; CENTRO SAMSUNG A. Pando esq.\n";
+      txtContent += "Portales, Hupermall piso 2 Su equipo celular es\n";
+      txtContent += "un terminal HOMOLOGADO para Bolivia, cuenta\n";
+      txtContent += "con garantia oficial del fabricante de 1 AÑO. La\n";
+      txtContent += "garantia no es cubierta por el distribuidor\n";
+      txtContent += "autorizado donde adquirió el equipo en ningun\n";
+      txtContent += "caso, por ningun periodo de tiempo, pieza, pieza\n";
+      txtContent += "accesorio o cualquier mala funcion del equipo.\n";
+      txtContent += "Tampoco es responsable por cualquier campaña,\n";
+      txtContent += "promoción o beneficio ofrecido antes o despues\n";
+      txtContent += "de la compra. Los términos y condiciones de la\n";
+      txtContent += "garantia son establecidos por el fabricante. No se\n";
+      txtContent += "aceptan cambios ni devoluciones\n";
+      txtContent += "\n";
+      
+      txtContent += doubleLine;
+      
+      // TABLA DE PRODUCTOS ESTILO FORMAL
+      txtContent += centerText(boldText("INFORMACIÓN DEL PRODUCTO"));
+      txtContent += "\n";
+      txtContent += "┌────┬─────────────────────┬────┬─────────┐\n";
+      txtContent += "│ITEM│    DESCRIPCIÓN      │CANT│ SERIE(S)│\n";
+      txtContent += "├────┼─────────────────────┼────┼─────────┤\n";
       
       (saleProducts || []).forEach((item: any, index: number) => {
-        // Nombre y especificaciones
-        txtContent += `${index + 1}. ${item.products.name}\n`;
-        txtContent += `   Color: ${item.products.color}\n`;
-        txtContent += `   ${item.products.ram}GB RAM, ${item.products.rom}GB ROM\n`;
-        txtContent += `   ${item.products.processor}\n`;
-        txtContent += `   Cod: ${item.product_barcodes_store?.barcode || "N/A"}\n`;
+        const itemNum = (index + 1).toString();
+        const description = `${item.products.name} ${item.products.color}`.substring(0, 19);
+        const barcode = (item.product_barcodes_store?.barcode || "N/A").substring(0, 7);
+        
+        txtContent += `│ ${itemNum}  │ ${description.padEnd(19)} │1.00│${barcode.padStart(8)} │\n`;
         
         // Códigos MEI
         if (item.mei_codes && item.mei_codes.length > 0) {
           item.mei_codes.forEach((mei: string, idx: number) => {
-            txtContent += `   MEI${idx + 1}: ${mei}\n`;
+            const meiCode = mei.substring(0, 7);
+            txtContent += `│    │                     │    │${meiCode.padStart(8)} │\n`;
           });
         }
-        txtContent += "\n";
       });
       
-      txtContent += line;
+      txtContent += "└────┴─────────────────────┴────┴─────────┘\n";
+      txtContent += "\n";
       
-      // TÉRMINOS DE GARANTÍA
-      txtContent += "TERMINOS DE GARANTIA:\n\n";
+      txtContent += doubleLine;
       
-      const terms = [
-        "• Garantia valida por 12 meses",
-        "• Cubre defectos de fabricacion",
-        "• NO cubre danos por mal uso",
-        "• NO cubre danos por liquidos",
-        "• NO cubre pantalla rota",
-        "• NO cubre golpes o caidas",
-        "• Presentar este comprobante",
-        "• Garantia solo en tienda"
-      ];
+      // IMPORTANTE
+      txtContent += centerText(boldText("IMPORTANTE"));
+      txtContent += "\n";
+      txtContent += "En caso de presentar alguna falla en el\n";
+      txtContent += "lapso de 24 hrs. al cliente tiene que\n";
+      txtContent += "hacer conocer a la tienda llamando al\n";
+      txtContent += "78333903.\n";
+      txtContent += "\n";
       
-      terms.forEach(term => {
-        txtContent += term + "\n";
-      });
+      txtContent += centerText(boldText("CONSERVE ESTE DOCUMENTO,"));
+      txtContent += centerText(boldText("SIN CUALQUIER RECLAMO SIN LA"));
+      txtContent += centerText(boldText("PRESENTACION DEL MISMO NO"));
+      txtContent += centerText(boldText("HABRA NINGUNO."));
       
       txtContent += "\n";
-      txtContent += line;
       
       // FIRMA DEL CLIENTE
-      txtContent += "FIRMA DEL CLIENTE:\n\n";
-      txtContent += "_________________________________\n\n";
+      txtContent += doubleLine;
+      txtContent += boldText("FIRMA DEL CLIENTE:") + "\n\n";
+      txtContent += "________________________________________\n\n";
       
       // PIE DE PÁGINA
-      txtContent += centerText("Conserve este documento");
-      txtContent += centerText("Es su comprobante de garantia");
-      txtContent += "\n";
-      txtContent += centerText(`Impreso: ${format(new Date(), "dd/MM/yyyy HH:mm")}`);
+      txtContent += centerText("GARANTÍA VÁLIDA POR 12 MESES");
+      txtContent += centerText("SOLO DEFECTOS DE FÁBRICA");
+      txtContent += centerText(`Impreso: ${format(new Date(), "dd/MM/yyyy HH:mm:ss")}`);
       txtContent += "\n\n\n"; // Espacios finales para corte de papel
       
       // Crear y descargar archivo TXT
@@ -882,6 +959,19 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               placeholder="Ingrese el nombre del cliente"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Celular del Cliente (Opcional)
+            </label>
+            <input
+              type="tel"
+              value={customerCellphone}
+              onChange={(e) => setCustomerCellphone(e.target.value)}
+              placeholder="Ingrese el celular del cliente"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -1170,6 +1260,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                   <div>
                     <span className="text-gray-600">Cliente:</span> {sale.customer_name || "Sin nombre"}
                     {sale.customer_phone && <span className="text-gray-500"> (Tel: {sale.customer_phone})</span>}
+                    {sale.customer_cellphone && <span className="text-gray-500"> (Cel: {sale.customer_cellphone})</span>}
                     {sale.customer_cellphone && <span className="text-gray-500"> (Cel: {sale.customer_cellphone})</span>}
                   </div>
                   <div>
