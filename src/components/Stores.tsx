@@ -43,20 +43,29 @@ export const Stores: React.FC<StoresProps> = ({ products }) => {
 
   const fetchStoreProductCounts = async () => {
     try {
-      const { data, error } = await supabase
+      // Get products that are active and have at least one available barcode
+      const { data: productBarcodes, error } = await supabase
         .from("product_barcodes_store")
-        .select("store_id, product_id");
+        .select(`
+          store_id, 
+          product_id,
+          products!product_id (active)
+        `)
+        .eq("is_sold", false);
 
       if (error) throw error;
 
       const counts: Record<string, number> = {};
       const uniqueProducts: Record<string, Set<string>> = {};
 
-      data?.forEach((item) => {
-        if (!uniqueProducts[item.store_id]) {
+      productBarcodes?.forEach((item) => {
+        // Only count active products
+        if (item.products?.active && !uniqueProducts[item.store_id]) {
           uniqueProducts[item.store_id] = new Set();
         }
-        uniqueProducts[item.store_id].add(item.product_id);
+        if (item.products?.active) {
+          uniqueProducts[item.store_id].add(item.product_id);
+        }
       });
 
       Object.keys(uniqueProducts).forEach((storeId) => {
