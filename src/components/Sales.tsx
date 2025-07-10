@@ -405,15 +405,6 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           if (sale.store_id && sale.store_id !== 'null' && sale.store_id.trim() !== '') {
             const { data } = await supabase
               .from("stores")
-              .select("name")
-              .eq("id", sale.store_id)
-              .single();
-            storeData = data;
-          }
-    try {
-      const { error } = await supabase
-        .from("sales")
-        .update({
           type_of_payment: editPaymentType,
           total_sale: editTotalAmount,
         })
