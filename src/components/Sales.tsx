@@ -14,15 +14,16 @@ import {
   Printer,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
-import Logo from "../assets/LOGO.png";
 
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
+const STORE_LOGO = `
+  █████╗ ██╗  ██╗ ██████╗███████╗██╗     
+ ██╔══██╗╚██╗██╔╝██╔════╝██╔════╝██║     
+ ███████║ ╚███╔╝ ██║     █████╗  ██║     
+ ██╔══██║ ██╔██╗ ██║     ██╔══╝  ██║     
+ ██║  ██║██╔╝ ██╗╚██████╗███████╗███████╗
+ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
+   Cellulares homologados
+`;
 
 interface Product {
   id: string;
@@ -49,7 +50,7 @@ interface SelectedProduct {
   barcode_id: string;
   barcode: string;
   product: Product;
-  mei_codes: string[];
+  imei_codes: string[];
 }
 
 interface Sale {
@@ -60,6 +61,7 @@ interface Sale {
   quantity_products: number;
   customer_name?: string;
   customer_ci?: string;
+  customer_phone?: string;
   store_id: string;
   employee_id: string;
   employees?: {
@@ -82,6 +84,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerCI, setCustomerCI] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [paymentType, setPaymentType] = useState("efectivo");
   const [totalAmount, setTotalAmount] = useState(0);
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
@@ -113,10 +116,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         setStores(storesData || []);
 
         if (employee.position === "administrador") {
-          // Para admin: no seleccionar tienda automáticamente, mostrar todas las ventas
-          setSelectedStore(""); // Esto permitirá ver ventas de todas las tiendas
+          setSelectedStore("");
         } else {
-          // Para empleados de ventas: seleccionar su tienda automáticamente
           setSelectedStore(employee.store_id);
         }
       }
@@ -125,7 +126,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     fetchInitialData();
   }, []);
 
-  // Cargar productos cuando cambie la tienda (solo para formulario de venta)
+  // Cargar productos cuando cambie la tienda
   useEffect(() => {
     if (selectedStore) {
       fetchAvailableProducts();
@@ -185,14 +186,12 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     if (!currentEmployee) return;
 
     try {
-      // Primero obtener las ventas básicas
       let salesQuery = supabase
         .from("sales")
         .select("*")
         .order("sale_date", { ascending: false })
         .range(offset, offset + limitItems - 1);
 
-      // Solo filtrar por tienda si es empleado de ventas
       if (currentEmployee.position !== "administrador") {
         salesQuery = salesQuery.eq("store_id", currentEmployee.store_id);
       }
@@ -202,17 +201,14 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       if (salesError) throw salesError;
 
       if (salesData && salesData.length > 0) {
-        // Obtener información adicional para cada venta
         const enrichedSales = await Promise.all(
           salesData.map(async (sale) => {
-            // Obtener información del empleado
             const { data: employeeData } = await supabase
               .from("employees")
               .select("first_name, last_name")
               .eq("id", sale.employee_id)
               .single();
 
-            // Obtener información de la tienda
             const { data: storeData } = await supabase
               .from("stores")
               .select("name")
@@ -262,43 +258,43 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       barcode_id: productBarcode.id,
       barcode: productBarcode.barcode,
       product: productBarcode.products,
-      mei_codes: [],
+      imei_codes: [],
     };
 
     setSelectedProducts([...selectedProducts, newProduct]);
     setSearchTerm("");
   };
 
-  const handleMEIChange = (barcodeId: string, index: number, value: string) => {
+  const handleIMEIChange = (barcodeId: string, index: number, value: string) => {
     setSelectedProducts(prev =>
       prev.map(item => {
         if (item.barcode_id === barcodeId) {
-          const newMeiCodes = [...item.mei_codes];
-          newMeiCodes[index] = value;
-          return { ...item, mei_codes: newMeiCodes };
+          const newImeiCodes = [...item.imei_codes];
+          newImeiCodes[index] = value;
+          return { ...item, imei_codes: newImeiCodes };
         }
         return item;
       })
     );
   };
 
-  const addMEIField = (barcodeId: string) => {
+  const addIMEIField = (barcodeId: string) => {
     setSelectedProducts(prev =>
       prev.map(item => {
         if (item.barcode_id === barcodeId) {
-          return { ...item, mei_codes: [...item.mei_codes, ""] };
+          return { ...item, imei_codes: [...item.imei_codes, ""] };
         }
         return item;
       })
     );
   };
 
-  const removeMEIField = (barcodeId: string, index: number) => {
+  const removeIMEIField = (barcodeId: string, index: number) => {
     setSelectedProducts(prev =>
       prev.map(item => {
         if (item.barcode_id === barcodeId) {
-          const newMeiCodes = item.mei_codes.filter((_, i) => i !== index);
-          return { ...item, mei_codes: newMeiCodes };
+          const newImeiCodes = item.imei_codes.filter((_, i) => i !== index);
+          return { ...item, imei_codes: newImeiCodes };
         }
         return item;
       })
@@ -307,6 +303,15 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
 
   const removeProduct = (barcodeId: string) => {
     setSelectedProducts(prev => prev.filter(item => item.barcode_id !== barcodeId));
+  };
+
+  const validateIMEICodes = () => {
+    for (const item of selectedProducts) {
+      if (item.imei_codes.length === 0 || item.imei_codes.some(imei => !imei.trim())) {
+        return false;
+      }
+    }
+    return true;
   };
 
   const handleSaleSubmit = async () => {
@@ -320,10 +325,14 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       return;
     }
 
+    if (!validateIMEICodes()) {
+      toast.error("Todos los productos deben tener al menos un código IMEI");
+      return;
+    }
+
     try {
       const saleId = crypto.randomUUID();
 
-      // Crear la venta
       const { error: saleError } = await supabase.from("sales").insert([
         {
           id: saleId,
@@ -334,26 +343,25 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           quantity_products: selectedProducts.length,
           customer_name: customerName || null,
           customer_ci: customerCI || null,
+          customer_phone: customerPhone || null,
           sale_date: new Date().toISOString(),
         },
       ]);
 
       if (saleError) throw saleError;
 
-      // Crear los items de venta
       for (const item of selectedProducts) {
         const { error: itemError } = await supabase.from("sale_product").insert([
           {
             sale_id: saleId,
             product_id: item.product.id,
             barcode_id: item.barcode_id,
-            mei_codes: item.mei_codes.filter(mei => mei.trim() !== ""),
+            mei_codes: item.imei_codes.filter(imei => imei.trim() !== ""),
           },
         ]);
 
         if (itemError) throw itemError;
 
-        // Marcar código de barras como vendido
         const { error: barcodeError } = await supabase
           .from("product_barcodes_store")
           .update({
@@ -367,14 +375,13 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
 
       toast.success("¡Venta registrada exitosamente!");
       
-      // Limpiar formulario
       setSelectedProducts([]);
       setCustomerName("");
       setCustomerCI("");
+      setCustomerPhone("");
       setPaymentType("efectivo");
       setSearchTerm("");
       
-      // Recargar datos
       fetchAvailableProducts();
       fetchSalesHistory();
     } catch (error) {
@@ -385,11 +392,15 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
 
   const handleEditSale = (sale: Sale) => {
     setEditingSale(sale.id);
-    setEditPaymentType(sale.type_of_payment);
-    setEditTotalAmount(sale.total_sale);
-  };
-
-  const handleSaveEdit = async (saleId: string) => {
+          let storeData = null;
+          if (sale.store_id && sale.store_id !== 'null' && sale.store_id.trim() !== '') {
+            const { data } = await supabase
+              .from("stores")
+              .select("name")
+              .eq("id", sale.store_id)
+              .single();
+            storeData = data;
+          }
     try {
       const { error } = await supabase
         .from("sales")
@@ -410,7 +421,6 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     }
   };
 
-  // Función para imprimir directamente (sin descargar)
   const printTXTContent = (content: string, title: string) => {
     const printWindow = window.open('', '_blank');
     if (printWindow) {
@@ -442,17 +452,21 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     }
   };
 
-  // Función para generar factura POS térmica mejorada
   const generateTXTInvoice = async (sale: Sale) => {
     try {
-      // Obtener información de la tienda
+      // Obtener información completa de la tienda y empleado
       const { data: storeData } = await supabase
         .from("stores")
         .select("name, address")
         .eq("id", sale.store_id)
         .single();
 
-      // Obtener productos de la venta
+      const { data: employeeData } = await supabase
+        .from("employees")
+        .select("first_name, last_name")
+        .eq("id", sale.employee_id)
+        .single();
+
       const { data: saleProducts } = await supabase
         .from("sale_product")
         .select(`
@@ -462,17 +476,14 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         `)
         .eq("sale_id", sale.id);
 
-      // Generar contenido TXT para impresora POS
       let txtContent = "";
       
-      // Función para centrar texto (42 caracteres de ancho)
       const centerText = (text: string) => {
         const width = 42;
         const padding = Math.max(0, Math.floor((width - text.length) / 2));
         return " ".repeat(padding) + text + "\n";
       };
       
-      // Función para justificar texto
       const justifyText = (left: string, right: string) => {
         const width = 42;
         const totalLength = left.length + right.length;
@@ -480,21 +491,11 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         return left + " ".repeat(spaces) + right + "\n";
       };
       
-      // Función para texto en negrita
-      const boldText = (text: string) => {
-        return `**${text}**`;
-      };
-      
-      // Línea divisoria
       const line = "==========================================\n";
       const doubleLine = "==========================================\n";
       
-      // ENCABEZADO CON LOGO
-      txtContent += centerText("╔══════════════════════════════════════╗");
-      txtContent += centerText("║        TIENDAS MOVIL AXCEL           ║");
-      txtContent += centerText("║      Venta de equipos móviles        ║");
-      txtContent += centerText("╚══════════════════════════════════════╝");
-      txtContent += "\n";
+      // LOGO ASCII
+      txtContent += STORE_LOGO + "\n";
       
       // Información de la tienda
       if (storeData) {
@@ -508,20 +509,22 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       txtContent += doubleLine;
       
       // INFORMACIÓN DE LA FACTURA
-      txtContent += centerText(boldText("FACTURA DE VENTA"));
+      txtContent += centerText("FACTURA DE VENTA");
       txtContent += centerText(`Nº ${sale.id.slice(-8).toUpperCase()}`);
       txtContent += centerText(format(new Date(sale.sale_date), "dd/MM/yyyy HH:mm:ss"));
       txtContent += "\n";
       
       txtContent += `LUGAR Y FECHA: Cochabamba, ${format(new Date(sale.sale_date), "dd/MM/yyyy")}\n`;
       txtContent += `CODIGO: ${sale.id.slice(-8).toUpperCase()} / NIT: 7255039\n`;
-      txtContent += `VENDEDOR: ${sale.employees?.first_name} ${sale.employees?.last_name}\n`;
+      if (employeeData) {
+        txtContent += `VENDEDOR: ${employeeData.first_name} ${employeeData.last_name}\n`;
+      }
       txtContent += "\n";
       
-      // INFORMACIÓN DEL CLIENTE (si existe)
-      if (sale.customer_name || sale.customer_ci) {
+      // INFORMACIÓN DEL CLIENTE
+      if (sale.customer_name || sale.customer_ci || sale.customer_phone) {
         txtContent += line;
-        txtContent += boldText("DATOS DEL CLIENTE:") + "\n";
+        txtContent += "DATOS DEL CLIENTE:\n";
         
         if (sale.customer_name) {
           txtContent += `SEÑOR(ES): ${sale.customer_name.toUpperCase()}\n`;
@@ -529,13 +532,16 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         if (sale.customer_ci) {
           txtContent += `C.I.: ${sale.customer_ci}\n`;
         }
+        if (sale.customer_phone) {
+          txtContent += `CELULAR: ${sale.customer_phone}\n`;
+        }
         txtContent += "\n";
       }
       
       txtContent += doubleLine;
       
       // TABLA DE PRODUCTOS
-      txtContent += centerText(boldText("INFORMACIÓN DEL PRODUCTO"));
+      txtContent += centerText("INFORMACIÓN DEL PRODUCTO");
       txtContent += "\n";
       txtContent += "┌────┬─────────────────────┬────┬─────────┐\n";
       txtContent += "│ITEM│    DESCRIPCIÓN      │CANT│  PRECIO │\n";
@@ -548,15 +554,12 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         const price = `${Math.round(finalPrice)} Bs.`;
         
         txtContent += `│ ${itemNum} │ ${description.padEnd(19)} │ 1  │${price.padStart(8)} │\n`;
-        
-        // Información adicional del producto
         txtContent += `│    │ COD: ${(item.product_barcodes_store?.barcode || "N/A").padEnd(15)} │    │         │\n`;
         
-        // Códigos MEI ordenados (MEI1, MEI2, etc.)
         if (item.mei_codes && item.mei_codes.length > 0) {
-          item.mei_codes.forEach((mei: string, idx: number) => {
-            const meiText = `MEI${idx + 1}: ${mei}`.substring(0, 19);
-            txtContent += `│    │ ${meiText.padEnd(19)} │    │         │\n`;
+          item.mei_codes.forEach((imei: string, idx: number) => {
+            const imeiText = `IMEI${idx + 1}: ${imei}`.substring(0, 19);
+            txtContent += `│    │ ${imeiText.padEnd(19)} │    │         │\n`;
           });
         }
       });
@@ -566,14 +569,14 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       
       // TOTALES
       txtContent += doubleLine;
-      txtContent += justifyText(boldText("TOTAL A PAGAR:"), boldText(`${sale.total_sale} Bs.`));
+      txtContent += justifyText("TOTAL A PAGAR:", `${sale.total_sale} Bs.`);
       txtContent += "\n";
       txtContent += justifyText("FORMA DE PAGO:", sale.type_of_payment.toUpperCase());
       txtContent += "\n";
       txtContent += doubleLine;
       
       // PIE DE PÁGINA
-      txtContent += centerText(boldText("¡GRACIAS POR SU COMPRA!"));
+      txtContent += centerText("¡GRACIAS POR SU COMPRA!");
       txtContent += "\n";
       txtContent += centerText("GARANTÍA DE 12 MESES");
       txtContent += centerText("SOLO DEFECTOS DE FÁBRICA");
@@ -582,11 +585,9 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       txtContent += centerText("PARA CUALQUIER RECLAMO");
       txtContent += "\n";
       txtContent += centerText(`Impreso: ${format(new Date(), "dd/MM/yyyy HH:mm:ss")}`);
-      txtContent += "\n\n\n"; // Espacios finales para corte de papel
+      txtContent += "\n\n\n";
       
-      // Imprimir directamente
       printTXTContent(txtContent, `Factura ${sale.id.slice(-8)}`);
-      
       toast.success("Factura enviada a impresión");
     } catch (error) {
       console.error("Error generating TXT invoice:", error);
@@ -594,17 +595,21 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     }
   };
 
-  // Función para generar garantía POS térmica mejorada
   const generateTXTWarranty = async (sale: Sale) => {
     try {
-      // Obtener información de la tienda
+      // Obtener información completa de la tienda y empleado
       const { data: storeData } = await supabase
         .from("stores")
         .select("name, address")
         .eq("id", sale.store_id)
         .single();
 
-      // Obtener productos de la venta
+      const { data: employeeData } = await supabase
+        .from("employees")
+        .select("first_name, last_name")
+        .eq("id", sale.employee_id)
+        .single();
+
       const { data: saleProducts } = await supabase
         .from("sale_product")
         .select(`
@@ -614,17 +619,14 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         `)
         .eq("sale_id", sale.id);
 
-      // Generar contenido TXT para garantía
       let txtContent = "";
       
-      // Función para centrar texto (42 caracteres de ancho)
       const centerText = (text: string) => {
         const width = 42;
         const padding = Math.max(0, Math.floor((width - text.length) / 2));
         return " ".repeat(padding) + text + "\n";
       };
       
-      // Función para justificar texto
       const justifyText = (left: string, right: string) => {
         const width = 42;
         const totalLength = left.length + right.length;
@@ -632,26 +634,16 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         return left + " ".repeat(spaces) + right + "\n";
       };
       
-      // Función para texto en negrita
-      const boldText = (text: string) => {
-        return `**${text}**`;
-      };
-      
-      // Línea divisoria
       const line = "==========================================\n";
       const doubleLine = "==========================================\n";
       
-      // ENCABEZADO
-      txtContent += centerText("TIENDAS MOVIL AXCEL");
-      txtContent += "\n";
+      // LOGO ASCII
+      txtContent += STORE_LOGO + "\n";
       
       // Información de la tienda
       if (storeData) {
         txtContent += centerText(storeData.name.toUpperCase());
-        const addressLines = storeData.address.split(',');
-        addressLines.forEach(line => {
-          txtContent += centerText(line.trim().toUpperCase());
-        });
+        txtContent += centerText(storeData.address);
       }
       txtContent += centerText("TEL 422003");
       txtContent += centerText("COCHABAMBA");
@@ -659,15 +651,14 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       txtContent += centerText("NIT: 7255039");
       txtContent += "\n";
       
-      txtContent += centerText(boldText("CERTIFICADO"));
-      txtContent += centerText(boldText("DE GARANTIA"));
+      txtContent += centerText("CERTIFICADO");
+      txtContent += centerText("DE GARANTIA");
       txtContent += centerText(`Nº ${sale.id.slice(-8).toUpperCase()}`);
       txtContent += centerText(format(new Date(sale.sale_date), "dd/MM/yyyy HH:mm:ss"));
       txtContent += "\n";
       
       txtContent += doubleLine;
       
-      // INFORMACIÓN DE LA GARANTÍA
       txtContent += `LUGAR Y FECHA: Cochabamba, ${format(new Date(sale.sale_date), "dd/MM/yyyy")}\n`;
       txtContent += `CODIGO: ${sale.id.slice(-8).toUpperCase()} / NIT: 7255039\n`;
       
@@ -676,6 +667,13 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         if (sale.customer_ci) {
           txtContent += `C.I.: ${sale.customer_ci}\n`;
         }
+        if (sale.customer_phone) {
+          txtContent += `CELULAR: ${sale.customer_phone}\n`;
+        }
+      }
+      
+      if (employeeData) {
+        txtContent += `VENDEDOR: ${employeeData.first_name} ${employeeData.last_name}\n`;
       }
       
       txtContent += "\n";
@@ -685,27 +683,13 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       txtContent += "el dispositivo presenta problemas tecnicos\n";
       txtContent += "producidos por instalación de programas,\n";
       txtContent += "actualizaciones, archivos y/o virus que afecte a su\n";
-      txtContent += "normal funcionamiento. Dir. Garantias. OP.\n";
-      txtContent += "CENTRAL: C. Ecuador #174 entre Ayacucho y\n";
-      txtContent += "Junin; CENTRO SAMSUNG A. Pando esq.\n";
-      txtContent += "Portales, Hupermall piso 2 Su equipo celular es\n";
-      txtContent += "un terminal HOMOLOGADO para Bolivia, cuenta\n";
-      txtContent += "con garantia oficial del fabricante de 1 AÑO. La\n";
-      txtContent += "garantia no es cubierta por el distribuidor\n";
-      txtContent += "autorizado donde adquirió el equipo en ningun\n";
-      txtContent += "caso, por ningun periodo de tiempo, pieza, pieza\n";
-      txtContent += "accesorio o cualquier mala funcion del equipo.\n";
-      txtContent += "Tampoco es responsable por cualquier campaña,\n";
-      txtContent += "promoción o beneficio ofrecido antes o despues\n";
-      txtContent += "de la compra. Los términos y condiciones de la\n";
-      txtContent += "garantia son establecidos por el fabricante. No se\n";
-      txtContent += "aceptan cambios ni devoluciones\n";
+      txtContent += "normal funcionamiento.\n";
       txtContent += "\n";
       
       txtContent += doubleLine;
       
       // TABLA DE PRODUCTOS
-      txtContent += centerText(boldText("INFORMACIÓN DEL PRODUCTO"));
+      txtContent += centerText("INFORMACIÓN DEL PRODUCTO");
       txtContent += "\n";
       txtContent += "┌────┬─────────────────────┬────┬─────────┐\n";
       txtContent += "│ITEM│    DESCRIPCIÓN      │CANT│ SERIE(S)│\n";
@@ -718,11 +702,10 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         
         txtContent += `│ ${itemNum}  │ ${description.padEnd(19)} │1.00│${barcode.padStart(8)} │\n`;
         
-        // Códigos MEI ordenados (MEI1, MEI2, etc.)
         if (item.mei_codes && item.mei_codes.length > 0) {
-          item.mei_codes.forEach((mei: string, idx: number) => {
-            const meiCode = `MEI${idx + 1}:${mei}`.substring(0, 7);
-            txtContent += `│    │                     │    │${meiCode.padStart(8)} │\n`;
+          item.mei_codes.forEach((imei: string, idx: number) => {
+            const imeiCode = `IMEI${idx + 1}:${imei}`.substring(0, 7);
+            txtContent += `│    │                     │    │${imeiCode.padStart(8)} │\n`;
           });
         }
       });
@@ -733,7 +716,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       txtContent += doubleLine;
       
       // IMPORTANTE
-      txtContent += centerText(boldText("IMPORTANTE"));
+      txtContent += centerText("IMPORTANTE");
       txtContent += "\n";
       txtContent += "En caso de presentar alguna falla en el\n";
       txtContent += "lapso de 24 hrs. al cliente tiene que\n";
@@ -741,27 +724,25 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       txtContent += "78333903.\n";
       txtContent += "\n";
       
-      txtContent += centerText(boldText("CONSERVE ESTE DOCUMENTO,"));
-      txtContent += centerText(boldText("SIN CUALQUIER RECLAMO SIN LA"));
-      txtContent += centerText(boldText("PRESENTACION DEL MISMO NO"));
-      txtContent += centerText(boldText("HABRA NINGUNO."));
+      txtContent += centerText("CONSERVE ESTE DOCUMENTO,");
+      txtContent += centerText("SIN CUALQUIER RECLAMO SIN LA");
+      txtContent += centerText("PRESENTACION DEL MISMO NO");
+      txtContent += centerText("HABRA NINGUNO.");
       
       txtContent += "\n";
       
       // FIRMA DEL CLIENTE
       txtContent += doubleLine;
-      txtContent += boldText("FIRMA DEL CLIENTE:") + "\n\n";
+      txtContent += "FIRMA DEL CLIENTE:\n\n";
       txtContent += "________________________________________\n\n";
       
       // PIE DE PÁGINA
       txtContent += centerText("GARANTÍA VÁLIDA POR 12 MESES");
       txtContent += centerText("SOLO DEFECTOS DE FÁBRICA");
       txtContent += centerText(`Impreso: ${format(new Date(), "dd/MM/yyyy HH:mm:ss")}`);
-      txtContent += "\n\n\n"; // Espacios finales para corte de papel
+      txtContent += "\n\n\n";
       
-      // Imprimir directamente
       printTXTContent(txtContent, `Garantía ${sale.id.slice(-8)}`);
-      
       toast.success("Garantía enviada a impresión");
     } catch (error) {
       console.error("Error generating TXT warranty:", error);
@@ -917,41 +898,48 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                       </button>
                     </div>
 
-                    {/* Códigos MEI */}
+                    {/* Códigos IMEI */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="text-sm font-medium text-gray-700">
-                          Códigos MEI:
+                          Códigos IMEI: <span className="text-red-500">*</span>
                         </label>
                         <button
                           type="button"
-                          onClick={() => addMEIField(item.barcode_id)}
+                          onClick={() => addIMEIField(item.barcode_id)}
                           className="text-blue-600 hover:text-blue-800 text-sm"
                         >
                           <Plus size={16} className="inline mr-1" />
-                          Agregar MEI
+                          Agregar IMEI
                         </button>
                       </div>
                       
-                      {item.mei_codes.map((mei, index) => (
+                      {item.imei_codes.map((imei, index) => (
                         <div key={index} className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-600 w-12">MEI{index + 1}:</span>
+                          <span className="text-sm text-gray-600 w-16">IMEI{index + 1}:</span>
                           <input
                             type="text"
-                            value={mei}
-                            onChange={(e) => handleMEIChange(item.barcode_id, index, e.target.value)}
-                            placeholder={`Ingrese MEI ${index + 1}`}
+                            value={imei}
+                            onChange={(e) => handleIMEIChange(item.barcode_id, index, e.target.value)}
+                            placeholder={`Ingrese IMEI ${index + 1}`}
                             className="flex-1 px-3 py-1 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                            required
                           />
                           <button
                             type="button"
-                            onClick={() => removeMEIField(item.barcode_id, index)}
+                            onClick={() => removeIMEIField(item.barcode_id, index)}
                             className="text-red-600 hover:text-red-800"
                           >
                             <Trash2 size={16} />
                           </button>
                         </div>
                       ))}
+                      
+                      {item.imei_codes.length === 0 && (
+                        <p className="text-sm text-red-500">
+                          Debe agregar al menos un código IMEI para este producto
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
@@ -961,7 +949,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         )}
 
         {/* Información del cliente */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Nombre del Cliente (Opcional)
@@ -984,6 +972,19 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               value={customerCI}
               onChange={(e) => setCustomerCI(e.target.value)}
               placeholder="Ingrese el C.I. del cliente"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Celular del Cliente (Opcional)
+            </label>
+            <input
+              type="text"
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              placeholder="Ingrese el celular del cliente"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -1022,7 +1023,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
           <div className="flex items-end">
             <button
               onClick={handleSaleSubmit}
-              disabled={selectedProducts.length === 0}
+              disabled={selectedProducts.length === 0 || !validateIMEICodes()}
               className="w-full bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <ShoppingCart size={20} />
@@ -1110,6 +1111,9 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                       {sale.customer_name || "Sin nombre"}
                       {sale.customer_ci && (
                         <div className="text-xs text-gray-500">C.I.: {sale.customer_ci}</div>
+                      )}
+                      {sale.customer_phone && (
+                        <div className="text-xs text-gray-500">Cel.: {sale.customer_phone}</div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -1246,6 +1250,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                   <div>
                     <span className="text-gray-600">Cliente:</span> {sale.customer_name || "Sin nombre"}
                     {sale.customer_ci && <span className="text-gray-500"> (C.I.: {sale.customer_ci})</span>}
+                    {sale.customer_phone && <span className="text-gray-500"> (Cel.: {sale.customer_phone})</span>}
                   </div>
                   <div>
                     <span className="text-gray-600">Productos:</span> {sale.quantity_products}

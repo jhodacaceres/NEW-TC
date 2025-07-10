@@ -51,23 +51,25 @@ export const Dashboard: React.FC<DashboardProps> = () => {
         const startOfYear = `${currentYear}-01-01`;
         const endOfYear = `${currentYear}-12-31`;
 
-        // 1. Obtener ventas del año actual
+        // 1. Obtener ventas del año actual con paginación
         const { data: salesData, error: salesError } = await supabase
           .from('sales')
-          .select('id, total_sale, sale_date, employee_id, quantity_products')
+          .select('id, total_sale, sale_date, employee_id, quantity_products', { count: 'exact' })
           .gte('sale_date', startOfYear)
-          .lte('sale_date', endOfYear);
+          .lte('sale_date', endOfYear)
+          .order('sale_date', { ascending: false });
 
         if (salesError) throw salesError;
 
-        // 2. Obtener productos vendidos del año
+        // 2. Obtener productos vendidos del año con paginación
         const { data: saleProductsData, error: saleProductsError } = await supabase
           .from('sale_product')
           .select(`
             sale_id,
             product_id,
             products!product_id (name, profit_bob)
-          `);
+          `)
+          .order('sale_id', { ascending: false });
 
         if (saleProductsError) throw saleProductsError;
 

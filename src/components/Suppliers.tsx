@@ -11,20 +11,36 @@ export const Suppliers = () => {
     Supplier | undefined
   >();
   const [searchTerm, setSearchTerm] = useState(""); // Nuevo estado para el término de búsqueda
+  const [offset, setOffset] = useState(0);
+  const [limitItems] = useState(10);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   // Obtener los proveedores desde Supabase
   useEffect(() => {
     const fetchSuppliers = async () => {
-      const { data, error } = await supabase.from("suppliers").select("*");
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("*")
+        .order('first_name', { ascending: true })
+        .range(offset, offset + limitItems - 1);
+        
       if (data) {
-        setSuppliers(data);
+        if (offset === 0) {
+          setSuppliers(data);
+        } else {
+          setSuppliers(prev => [...prev, ...data]);
+        }
+        setHasMore(data.length === limitItems);
       } else {
         console.error("Error fetching suppliers: ", error);
       }
+      setLoading(false);
     };
 
     fetchSuppliers();
-  }, []);
+  }, [offset]);
 
   // Función para manejar el formulario de proveedores (crear o editar)
   const handleSubmit = async (data: Partial<Supplier>) => {
@@ -103,6 +119,11 @@ export const Suppliers = () => {
       supplier.phone.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const loadMore = () => {
+    if (!loading && hasMore) {
+      setOffset(prev => prev + limitItems);
+    }
+  };
   return (
     <div>
       {showForm ? (
@@ -207,6 +228,19 @@ export const Suppliers = () => {
                 )}
               </tbody>
             </table>
+            
+            {/* Load More Button */}
+            {hasMore && !searchTerm && (
+              <div className="p-4 text-center border-t">
+                <button
+                  onClick={loadMore}
+                  disabled={loading}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Cargando...' : 'Cargar más proveedores'}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Vista en tarjetas para móvil */}
@@ -238,6 +272,19 @@ export const Suppliers = () => {
             {filteredSuppliers.length === 0 && (
               <div className="text-center text-gray-500">
                 No hay proveedores registrados que coincidan con la búsqueda.
+              </div>
+            )}
+            
+            {/* Load More Button for Mobile */}
+            {hasMore && !searchTerm && (
+              <div className="text-center">
+                <button
+                  onClick={loadMore}
+                  disabled={loading}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Cargando...' : 'Cargar más proveedores'}
+                </button>
               </div>
             )}
           </div>
