@@ -401,11 +401,15 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               .single();
             storeData = data;
           }
-    setEditPaymentType(sale.type_of_payment);
-    setEditTotalAmount(sale.total_sale);
-  };
-
-  const handleSaveEdit = async (saleId: string) => {
+          let storeData = null;
+          if (sale.store_id && sale.store_id !== 'null' && sale.store_id.trim() !== '') {
+            const { data } = await supabase
+              .from("stores")
+              .select("name")
+              .eq("id", sale.store_id)
+              .single();
+            storeData = data;
+          }
     try {
       const { error } = await supabase
         .from("sales")

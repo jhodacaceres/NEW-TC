@@ -304,10 +304,16 @@ export const TransferComponent: React.FC<TransferProps> = ({
         const enrichedTransfers = await Promise.all(
           transfersData.map(async (transfer) => {
             // Obtener nombres de tiendas
-            const [fromStoreData, toStoreData] = await Promise.all([
-              supabase.from("stores").select("name").eq("id", transfer.store_origin_id).single(),
-              supabase.from("stores").select("name").eq("id", transfer.store_destiny_id).single(),
-            ]);
+            let fromStoreData = { data: null };
+            let toStoreData = { data: null };
+            
+            if (transfer.store_origin_id && transfer.store_origin_id !== 'null' && transfer.store_origin_id.trim() !== '') {
+              fromStoreData = await supabase.from("stores").select("name").eq("id", transfer.store_origin_id).single();
+            }
+            
+            if (transfer.store_destiny_id && transfer.store_destiny_id !== 'null' && transfer.store_destiny_id.trim() !== '') {
+              toStoreData = await supabase.from("stores").select("name").eq("id", transfer.store_destiny_id).single();
+            }
 
             // Obtener nombre del empleado
             const { data: employeeData } = await supabase
