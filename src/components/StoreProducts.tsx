@@ -177,10 +177,9 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({
       const { data: existingBarcode } = await supabase
         .from('product_barcodes_store')
         .select('id')
-        .eq('barcode', newBarcode.trim())
-        .single();
+        .eq('barcode', newBarcode.trim());
 
-      if (existingBarcode) {
+      if (existingBarcode && existingBarcode.length > 0) {
         toast.error('Este código de barras ya está registrado');
         return;
       }
