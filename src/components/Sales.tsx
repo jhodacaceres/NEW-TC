@@ -390,7 +390,7 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     }
   };
 
-  const handleEditSale = (sale: Sale) => {
+  const handleEditSale = async (sale: Sale) => {
     setEditingSale(sale.id);
           let storeData = null;
           if (sale.store_id && sale.store_id !== 'null' && sale.store_id.trim() !== '') {
