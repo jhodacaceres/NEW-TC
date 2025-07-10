@@ -1,6 +1,3 @@
-Here's the fixed version with all missing closing brackets and proper syntax:
-
-```typescript
 import React, { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { supabase } from "../lib/supabase";
