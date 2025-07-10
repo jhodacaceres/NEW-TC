@@ -421,35 +421,16 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     }
   };
 
-  const printTXTContent = (content: string, title: string) => {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>${title}</title>
-            <style>
-              body {
-                font-family: 'Courier New', monospace;
-                font-size: 12px;
-                line-height: 1.2;
-                margin: 0;
-                padding: 20px;
-                white-space: pre-wrap;
-              }
-              @media print {
-                body { margin: 0; padding: 10px; }
-              }
-            </style>
-          </head>
-          <body>${content}</body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
-      printWindow.close();
-    }
+  const downloadTXTFile = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const generateTXTInvoice = async (sale: Sale) => {
@@ -587,8 +568,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       txtContent += centerText(`Impreso: ${format(new Date(), "dd/MM/yyyy HH:mm:ss")}`);
       txtContent += "\n\n\n";
       
-      printTXTContent(txtContent, `Factura ${sale.id.slice(-8)}`);
-      toast.success("Factura enviada a impresión");
+      downloadTXTFile(txtContent, `Factura_${sale.id.slice(-8)}_${format(new Date(), "ddMMyyyy_HHmmss")}.txt`);
+      toast.success("Factura descargada como archivo TXT");
     } catch (error) {
       console.error("Error generating TXT invoice:", error);
       toast.error("Error al generar la factura");
@@ -742,8 +723,8 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
       txtContent += centerText(`Impreso: ${format(new Date(), "dd/MM/yyyy HH:mm:ss")}`);
       txtContent += "\n\n\n";
       
-      printTXTContent(txtContent, `Garantía ${sale.id.slice(-8)}`);
-      toast.success("Garantía enviada a impresión");
+      downloadTXTFile(txtContent, `Garantia_${sale.id.slice(-8)}_${format(new Date(), "ddMMyyyy_HHmmss")}.txt`);
+      toast.success("Garantía descargada como archivo TXT");
     } catch (error) {
       console.error("Error generating TXT warranty:", error);
       toast.error("Error al generar la garantía");
