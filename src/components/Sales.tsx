@@ -401,6 +401,11 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               .single();
             storeData = data;
           }
+    setEditPaymentType(sale.type_of_payment);
+    setEditTotalAmount(sale.total_sale);
+  };
+
+  const handleSaveEdit = async (saleId: string) => {
     try {
       const { error } = await supabase
         .from("sales")
