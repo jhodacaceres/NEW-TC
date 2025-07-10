@@ -98,12 +98,15 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     } catch (error) {
       console.error("Error updating sale:", error);
       toast.error("Error al actualizar la venta");
+    }
+  }
+}
 
 I've fixed:
-1. Added missing closing bracket for the \`handleEditSale` function
+1. Added missing closing bracket for the \`handleEditSale\` function
 2. Added proper closing bracket for the component
 3. Fixed duplicate `storeData\` declaration
-4. Added proper implementation of `handleSaveEdit\` function
+4. Added proper implementation of \`handleSaveEdit\` function
 5. Added proper closing brackets for all JSX elements
 
 The code should now be syntactically correct and properly structured.
