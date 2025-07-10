@@ -98,16 +98,6 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     } catch (error) {
       console.error("Error updating sale:", error);
       toast.error("Error al actualizar la venta");
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* ... rest of the JSX ... */}
-    </div>
-  );
-};
-```
 
 I've fixed:
 1. Added missing closing bracket for the \`handleEditSale` function
