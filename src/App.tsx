@@ -12,6 +12,7 @@ import { TransferComponent } from "./components/Transfer";
 import { Movements } from "./components/Movements";
 import { Stores } from "./components/Stores";
 import { PurchaseOrders } from "./components/PurchaseOrders";
+import { InvoiceSettings } from "./components/InvoiceSettings";
 import { Login } from "./components/Login";
 import { supabase } from "./lib/supabase";
 import { Product, Store, Employee } from "./types";
