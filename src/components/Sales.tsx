@@ -12,6 +12,7 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   Printer,
+  Usb,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -77,6 +78,363 @@ interface SalesProps {
   exchangeRate: number;
 }
 
+// Clase para manejar la impresora POS via WebUSB
+class POSPrinter {
+  private device: USBDevice | null = null;
+  private interface: USBInterface | null = null;
+  private endpoint: USBEndpoint | null = null;
+
+  // ESC/POS Commands
+  private readonly ESC = '\x1B';
+  private readonly GS = '\x1D';
+  
+  // Comandos básicos
+  private readonly INIT = this.ESC + '@';
+  private readonly BOLD_ON = this.ESC + 'E' + '\x01';
+  private readonly BOLD_OFF = this.ESC + 'E' + '\x00';
+  private readonly ALIGN_LEFT = this.ESC + 'a' + '\x00';
+  private readonly ALIGN_CENTER = this.ESC + 'a' + '\x01';
+  private readonly ALIGN_RIGHT = this.ESC + 'a' + '\x02';
+  private readonly CUT_PAPER = this.GS + 'V' + '\x00';
+  private readonly LINE_FEED = '\n';
+  private readonly DOUBLE_HEIGHT = this.ESC + '!' + '\x10';
+  private readonly NORMAL_SIZE = this.ESC + '!' + '\x00';
+
+  async connect(): Promise<boolean> {
+    try {
+      // Verificar soporte de WebUSB
+      if (!navigator.usb) {
+        throw new Error('WebUSB no está soportado en este navegador');
+      }
+
+      // Filtros para impresoras POS comunes (incluyendo Logic Controls)
+      const filters = [
+        { vendorId: 0x0DD4 }, // Logic Controls
+        { vendorId: 0x04B8 }, // Epson
+        { vendorId: 0x154F }, // Citizen
+        { vendorId: 0x0519 }, // Star Micronics
+      ];
+
+      this.device = await navigator.usb.requestDevice({ filters });
+      
+      if (!this.device) {
+        throw new Error('No se seleccionó ninguna impresora');
+      }
+
+      await this.device.open();
+      
+      // Seleccionar configuración
+      if (this.device.configuration === null) {
+        await this.device.selectConfiguration(1);
+      }
+
+      // Encontrar la interfaz correcta
+      const interfaces = this.device.configuration?.interfaces || [];
+      this.interface = interfaces.find(iface => 
+        iface.alternates[0].interfaceClass === 7 // Printer class
+      ) || interfaces[0];
+
+      if (!this.interface) {
+        throw new Error('No se encontró interfaz de impresora válida');
+      }
+
+      await this.device.claimInterface(this.interface.interfaceNumber);
+
+      // Encontrar endpoint de salida
+      const endpoints = this.interface.alternates[0].endpoints;
+      this.endpoint = endpoints.find(ep => ep.direction === 'out');
+
+      if (!this.endpoint) {
+        throw new Error('No se encontró endpoint de salida');
+      }
+
+      toast.success('Impresora conectada exitosamente');
+      return true;
+
+    } catch (error) {
+      console.error('Error conectando impresora:', error);
+      toast.error(`Error al conectar impresora: ${error.message}`);
+      return false;
+    }
+  }
+
+  async disconnect(): Promise<void> {
+    try {
+      if (this.device && this.interface) {
+        await this.device.releaseInterface(this.interface.interfaceNumber);
+        await this.device.close();
+      }
+    } catch (error) {
+      console.error('Error desconectando impresora:', error);
+    } finally {
+      this.device = null;
+      this.interface = null;
+      this.endpoint = null;
+    }
+  }
+
+  async print(content: string): Promise<boolean> {
+    if (!this.device || !this.endpoint) {
+      toast.error('Impresora no conectada');
+      return false;
+    }
+
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(content);
+      
+      await this.device.transferOut(this.endpoint.endpointNumber, data);
+      toast.success('Documento enviado a impresora');
+      return true;
+
+    } catch (error) {
+      console.error('Error imprimiendo:', error);
+      toast.error(`Error al imprimir: ${error.message}`);
+      return false;
+    }
+  }
+
+  // Métodos para generar contenido ESC/POS
+  centerText(text: string, width: number = 48): string {
+    const padding = Math.max(0, Math.floor((width - text.length) / 2));
+    return ' '.repeat(padding) + text;
+  }
+
+  justifyText(left: string, right: string, width: number = 48): string {
+    const totalLength = left.length + right.length;
+    const spaces = Math.max(1, width - totalLength);
+    return left + ' '.repeat(spaces) + right;
+  }
+
+  generateInvoice(sale: Sale, saleProducts: any[], storeData: any, employeeData: any): string {
+    let content = this.INIT; // Inicializar impresora
+    
+    // LOGO ASCII centrado
+    content += this.ALIGN_CENTER + this.BOLD_ON;
+    const logoLines = STORE_LOGO.trim().split('\n');
+    logoLines.forEach(line => {
+      content += line + this.LINE_FEED;
+    });
+    content += this.BOLD_OFF + this.LINE_FEED;
+    
+    // Información de la tienda
+    if (storeData) {
+      content += this.BOLD_ON + storeData.name.toUpperCase() + this.BOLD_OFF + this.LINE_FEED;
+      content += storeData.address + this.LINE_FEED;
+    }
+    content += 'TEL: 422003' + this.LINE_FEED;
+    content += 'COCHABAMBA - BOLIVIA' + this.LINE_FEED;
+    content += 'NIT: 7255039' + this.LINE_FEED + this.LINE_FEED;
+    
+    // Título de factura
+    content += this.DOUBLE_HEIGHT + this.BOLD_ON;
+    content += 'FACTURA DE VENTA' + this.LINE_FEED;
+    content += `No ${sale.id.slice(-8).toUpperCase()}` + this.LINE_FEED;
+    content += this.NORMAL_SIZE + this.BOLD_OFF;
+    content += format(new Date(sale.sale_date), "dd/MM/yyyy HH:mm:ss") + this.LINE_FEED + this.LINE_FEED;
+    
+    // Información de la factura
+    content += this.ALIGN_LEFT;
+    content += `LUGAR Y FECHA: Cochabamba, ${format(new Date(sale.sale_date), "dd/MM/yyyy")}` + this.LINE_FEED;
+    content += `CODIGO: ${sale.id.slice(-8).toUpperCase()} / NIT: 7255039` + this.LINE_FEED;
+    if (employeeData) {
+      content += `VENDEDOR: ${employeeData.first_name} ${employeeData.last_name}` + this.LINE_FEED;
+    }
+    content += this.LINE_FEED;
+    
+    // Información del cliente
+    if (sale.customer_name || sale.customer_ci || sale.customer_phone) {
+      content += '----------------------------------------' + this.LINE_FEED;
+      content += 'DATOS DEL CLIENTE:' + this.LINE_FEED;
+      
+      if (sale.customer_name) {
+        content += `SEÑOR(ES): ${sale.customer_name.toUpperCase()}` + this.LINE_FEED;
+      }
+      if (sale.customer_ci) {
+        content += `C.I.: ${sale.customer_ci}` + this.LINE_FEED;
+      }
+      if (sale.customer_phone) {
+        content += `CELULAR: ${sale.customer_phone}` + this.LINE_FEED;
+      }
+      content += this.LINE_FEED;
+    }
+    
+    content += '========================================' + this.LINE_FEED;
+    
+    // Encabezado de productos
+    content += this.ALIGN_CENTER + this.BOLD_ON;
+    content += 'INFORMACION DEL PRODUCTO' + this.LINE_FEED;
+    content += this.BOLD_OFF + this.ALIGN_LEFT + this.LINE_FEED;
+    
+    // Productos
+    (saleProducts || []).forEach((item: any, index: number) => {
+      const finalPrice = item.products.cost_price * this.exchangeRate + item.products.profit_bob;
+      const itemNum = (index + 1).toString().padStart(2, '0');
+      
+      content += `ITEM ${itemNum}:` + this.LINE_FEED;
+      content += `${item.products.name} ${item.products.color}` + this.LINE_FEED;
+      content += `COD: ${item.product_barcodes_store?.barcode || "N/A"}` + this.LINE_FEED;
+      content += `PRECIO: ${Math.round(finalPrice)} Bs.` + this.LINE_FEED;
+      
+      if (item.mei_codes && item.mei_codes.length > 0) {
+        item.mei_codes.forEach((imei: string, idx: number) => {
+          content += `IMEI${idx + 1}: ${imei}` + this.LINE_FEED;
+        });
+      }
+      content += this.LINE_FEED;
+    });
+    
+    content += '========================================' + this.LINE_FEED;
+    
+    // Totales
+    content += this.ALIGN_RIGHT + this.BOLD_ON;
+    content += `TOTAL A PAGAR: ${sale.total_sale} Bs.` + this.LINE_FEED;
+    content += this.BOLD_OFF + this.LINE_FEED;
+    content += `FORMA DE PAGO: ${sale.type_of_payment.toUpperCase()}` + this.LINE_FEED;
+    content += this.LINE_FEED;
+    
+    // Pie de página
+    content += this.ALIGN_CENTER;
+    content += '¡GRACIAS POR SU COMPRA!' + this.LINE_FEED + this.LINE_FEED;
+    content += 'GARANTIA DE 12 MESES' + this.LINE_FEED;
+    content += 'SOLO DEFECTOS DE FABRICA' + this.LINE_FEED + this.LINE_FEED;
+    content += 'CONSERVE ESTE DOCUMENTO' + this.LINE_FEED;
+    content += 'PARA CUALQUIER RECLAMO' + this.LINE_FEED + this.LINE_FEED;
+    content += `Impreso: ${format(new Date(), "dd/MM/yyyy HH:mm:ss")}` + this.LINE_FEED;
+    content += this.LINE_FEED + this.LINE_FEED + this.LINE_FEED;
+    
+    // Cortar papel
+    content += this.CUT_PAPER;
+    
+    return content;
+  }
+
+  generateWarranty(sale: Sale, saleProducts: any[], storeData: any, employeeData: any): string {
+    let content = this.INIT; // Inicializar impresora
+    
+    // LOGO ASCII centrado
+    content += this.ALIGN_CENTER + this.BOLD_ON;
+    const logoLines = STORE_LOGO.trim().split('\n');
+    logoLines.forEach(line => {
+      content += line + this.LINE_FEED;
+    });
+    content += this.BOLD_OFF + this.LINE_FEED;
+    
+    // Información de la tienda
+    if (storeData) {
+      content += this.BOLD_ON + storeData.name.toUpperCase() + this.BOLD_OFF + this.LINE_FEED;
+      content += storeData.address + this.LINE_FEED;
+    }
+    content += 'TEL 422003' + this.LINE_FEED;
+    content += 'COCHABAMBA' + this.LINE_FEED;
+    content += 'BOLIVIA' + this.LINE_FEED;
+    content += 'NIT: 7255039' + this.LINE_FEED + this.LINE_FEED;
+    
+    // Título de garantía
+    content += this.DOUBLE_HEIGHT + this.BOLD_ON;
+    content += 'CERTIFICADO' + this.LINE_FEED;
+    content += 'DE GARANTIA' + this.LINE_FEED;
+    content += this.NORMAL_SIZE + this.BOLD_OFF;
+    content += `No ${sale.id.slice(-8).toUpperCase()}` + this.LINE_FEED;
+    content += format(new Date(sale.sale_date), "dd/MM/yyyy HH:mm:ss") + this.LINE_FEED + this.LINE_FEED;
+    
+    content += '========================================' + this.LINE_FEED;
+    
+    // Información
+    content += this.ALIGN_LEFT;
+    content += `LUGAR Y FECHA: Cochabamba, ${format(new Date(sale.sale_date), "dd/MM/yyyy")}` + this.LINE_FEED;
+    content += `CODIGO: ${sale.id.slice(-8).toUpperCase()} / NIT: 7255039` + this.LINE_FEED;
+    
+    if (sale.customer_name || sale.customer_ci) {
+      content += `SEÑOR(ES): ${(sale.customer_name || 'CLIENTE').toUpperCase()}` + this.LINE_FEED;
+      if (sale.customer_ci) {
+        content += `C.I.: ${sale.customer_ci}` + this.LINE_FEED;
+      }
+      if (sale.customer_phone) {
+        content += `CELULAR: ${sale.customer_phone}` + this.LINE_FEED;
+      }
+    }
+    
+    if (employeeData) {
+      content += `VENDEDOR: ${employeeData.first_name} ${employeeData.last_name}` + this.LINE_FEED;
+    }
+    
+    content += this.LINE_FEED;
+    
+    // Advertencia importante
+    content += 'Recuerde que no habra ningun tipo de garantia si' + this.LINE_FEED;
+    content += 'el dispositivo presenta problemas tecnicos' + this.LINE_FEED;
+    content += 'producidos por instalacion de programas,' + this.LINE_FEED;
+    content += 'actualizaciones, archivos y/o virus que afecte a su' + this.LINE_FEED;
+    content += 'normal funcionamiento.' + this.LINE_FEED + this.LINE_FEED;
+    
+    content += '========================================' + this.LINE_FEED;
+    
+    // Encabezado de productos
+    content += this.ALIGN_CENTER + this.BOLD_ON;
+    content += 'INFORMACION DEL PRODUCTO' + this.LINE_FEED;
+    content += this.BOLD_OFF + this.ALIGN_LEFT + this.LINE_FEED;
+    
+    // Productos
+    (saleProducts || []).forEach((item: any, index: number) => {
+      const itemNum = (index + 1).toString();
+      
+      content += `ITEM ${itemNum}:` + this.LINE_FEED;
+      content += `${item.products.name} ${item.products.color}` + this.LINE_FEED;
+      content += `CANTIDAD: 1.00` + this.LINE_FEED;
+      content += `SERIE: ${(item.product_barcodes_store?.barcode || "N/A").substring(0, 7)}` + this.LINE_FEED;
+      
+      if (item.mei_codes && item.mei_codes.length > 0) {
+        item.mei_codes.forEach((imei: string, idx: number) => {
+          content += `IMEI${idx + 1}: ${imei}` + this.LINE_FEED;
+        });
+      }
+      content += this.LINE_FEED;
+    });
+    
+    content += '========================================' + this.LINE_FEED;
+    
+    // Importante
+    content += this.ALIGN_CENTER + this.BOLD_ON;
+    content += 'IMPORTANTE' + this.LINE_FEED;
+    content += this.BOLD_OFF + this.ALIGN_LEFT + this.LINE_FEED;
+    
+    content += 'En caso de presentar alguna falla en el' + this.LINE_FEED;
+    content += 'lapso de 24 hrs. al cliente tiene que' + this.LINE_FEED;
+    content += 'hacer conocer a la tienda llamando al' + this.LINE_FEED;
+    content += '78333903.' + this.LINE_FEED + this.LINE_FEED;
+    
+    content += this.ALIGN_CENTER;
+    content += 'CONSERVE ESTE DOCUMENTO,' + this.LINE_FEED;
+    content += 'SIN CUALQUIER RECLAMO SIN LA' + this.LINE_FEED;
+    content += 'PRESENTACION DEL MISMO NO' + this.LINE_FEED;
+    content += 'HABRA NINGUNO.' + this.LINE_FEED + this.LINE_FEED;
+    
+    // Firma del cliente
+    content += '========================================' + this.LINE_FEED;
+    content += 'FIRMA DEL CLIENTE:' + this.LINE_FEED + this.LINE_FEED + this.LINE_FEED;
+    content += '________________________________________' + this.LINE_FEED + this.LINE_FEED;
+    
+    // Pie de página
+    content += this.ALIGN_CENTER;
+    content += 'GARANTIA VALIDA POR 12 MESES' + this.LINE_FEED;
+    content += 'SOLO DEFECTOS DE FABRICA' + this.LINE_FEED;
+    content += `Impreso: ${format(new Date(), "dd/MM/yyyy HH:mm:ss")}` + this.LINE_FEED;
+    content += this.LINE_FEED + this.LINE_FEED + this.LINE_FEED;
+    
+    // Cortar papel
+    content += this.CUT_PAPER;
+    
+    return content;
+  }
+
+  private exchangeRate: number = 6.96;
+
+  setExchangeRate(rate: number): void {
+    this.exchangeRate = rate;
+  }
+}
+
 export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   // Estados principales
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
@@ -100,6 +458,10 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   const [offset, setOffset] = useState(0);
   const [limitItems] = useState(5);
   const [hasMore, setHasMore] = useState(true);
+
+  // Estados para impresora POS
+  const [printer] = useState(new POSPrinter());
+  const [isPrinterConnected, setIsPrinterConnected] = useState(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -146,6 +508,11 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     }, 0);
     setTotalAmount(Math.round(total));
   }, [selectedProducts, exchangeRate]);
+
+  // Actualizar exchange rate en la impresora
+  useEffect(() => {
+    printer.setExchangeRate(exchangeRate);
+  }, [exchangeRate, printer]);
 
   const fetchAvailableProducts = async () => {
     if (!selectedStore) return;
@@ -209,11 +576,15 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
               .eq("id", sale.employee_id)
               .single();
 
-            const { data: storeData } = await supabase
-              .from("stores")
-              .select("name")
-              .eq("id", sale.store_id)
-              .single();
+            let storeData = null;
+            if (sale.store_id && sale.store_id !== 'null' && sale.store_id.trim() !== '') {
+              const { data } = await supabase
+                .from("stores")
+                .select("name")
+                .eq("id", sale.store_id)
+                .single();
+              storeData = data;
+            }
 
             return {
               ...sale,
@@ -392,15 +763,11 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
 
   const handleEditSale = async (sale: Sale) => {
     setEditingSale(sale.id);
-          let storeData = null;
-          if (sale.store_id && sale.store_id !== 'null' && sale.store_id.trim() !== '') {
-            const { data } = await supabase
-              .from("stores")
-              .select("name")
-              .eq("id", sale.store_id)
-              .single();
-            storeData = data;
-          }
+    setEditPaymentType(sale.type_of_payment);
+    setEditTotalAmount(sale.total_sale);
+  };
+
+  const handleSaveEdit = async (saleId: string) => {
     try {
       const { error } = await supabase
         .from("sales")
@@ -421,19 +788,26 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
     }
   };
 
-  const downloadTXTFile = (content: string, filename: string) => {
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  // Función para conectar impresora
+  const handleConnectPrinter = async () => {
+    const connected = await printer.connect();
+    setIsPrinterConnected(connected);
   };
 
-  const generateTXTInvoice = async (sale: Sale) => {
+  // Función para desconectar impresora
+  const handleDisconnectPrinter = async () => {
+    await printer.disconnect();
+    setIsPrinterConnected(false);
+    toast.success("Impresora desconectada");
+  };
+
+  // Función para imprimir factura
+  const handlePrintInvoice = async (sale: Sale) => {
+    if (!isPrinterConnected) {
+      toast.error("Primero debe conectar la impresora");
+      return;
+    }
+
     try {
       // Obtener información completa de la tienda y empleado
       const { data: storeData } = await supabase
@@ -457,126 +831,22 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         `)
         .eq("sale_id", sale.id);
 
-      let txtContent = "";
-      
-      const centerText = (text: string) => {
-        const width = 42;
-        const padding = Math.max(0, Math.floor((width - text.length) / 2));
-        return " ".repeat(padding) + text + "\n";
-      };
-      
-      const justifyText = (left: string, right: string) => {
-        const width = 42;
-        const totalLength = left.length + right.length;
-        const spaces = Math.max(1, width - totalLength);
-        return left + " ".repeat(spaces) + right + "\n";
-      };
-      
-      const line = "==========================================\n";
-      const doubleLine = "==========================================\n";
-      
-      // LOGO ASCII
-      txtContent += STORE_LOGO + "\n";
-      
-      // Información de la tienda
-      if (storeData) {
-        txtContent += centerText(storeData.name.toUpperCase());
-        txtContent += centerText(storeData.address);
-      }
-      txtContent += centerText("TEL: 422003");
-      txtContent += centerText("COCHABAMBA - BOLIVIA");
-      txtContent += centerText("NIT: 7255039");
-      txtContent += "\n";
-      txtContent += doubleLine;
-      
-      // INFORMACIÓN DE LA FACTURA
-      txtContent += centerText("FACTURA DE VENTA");
-      txtContent += centerText(`Nº ${sale.id.slice(-8).toUpperCase()}`);
-      txtContent += centerText(format(new Date(sale.sale_date), "dd/MM/yyyy HH:mm:ss"));
-      txtContent += "\n";
-      
-      txtContent += `LUGAR Y FECHA: Cochabamba, ${format(new Date(sale.sale_date), "dd/MM/yyyy")}\n`;
-      txtContent += `CODIGO: ${sale.id.slice(-8).toUpperCase()} / NIT: 7255039\n`;
-      if (employeeData) {
-        txtContent += `VENDEDOR: ${employeeData.first_name} ${employeeData.last_name}\n`;
-      }
-      txtContent += "\n";
-      
-      // INFORMACIÓN DEL CLIENTE
-      if (sale.customer_name || sale.customer_ci || sale.customer_phone) {
-        txtContent += line;
-        txtContent += "DATOS DEL CLIENTE:\n";
-        
-        if (sale.customer_name) {
-          txtContent += `SEÑOR(ES): ${sale.customer_name.toUpperCase()}\n`;
-        }
-        if (sale.customer_ci) {
-          txtContent += `C.I.: ${sale.customer_ci}\n`;
-        }
-        if (sale.customer_phone) {
-          txtContent += `CELULAR: ${sale.customer_phone}\n`;
-        }
-        txtContent += "\n";
-      }
-      
-      txtContent += doubleLine;
-      
-      // TABLA DE PRODUCTOS
-      txtContent += centerText("INFORMACIÓN DEL PRODUCTO");
-      txtContent += "\n";
-      txtContent += "┌────┬─────────────────────┬────┬─────────┐\n";
-      txtContent += "│ITEM│    DESCRIPCIÓN      │CANT│  PRECIO │\n";
-      txtContent += "├────┼─────────────────────┼────┼─────────┤\n";
-      
-      (saleProducts || []).forEach((item: any, index: number) => {
-        const finalPrice = item.products.cost_price * exchangeRate + item.products.profit_bob;
-        const itemNum = (index + 1).toString().padStart(2, '0');
-        const description = `${item.products.name} ${item.products.color}`.substring(0, 19);
-        const price = `${Math.round(finalPrice)} Bs.`;
-        
-        txtContent += `│ ${itemNum} │ ${description.padEnd(19)} │ 1  │${price.padStart(8)} │\n`;
-        txtContent += `│    │ COD: ${(item.product_barcodes_store?.barcode || "N/A").padEnd(15)} │    │         │\n`;
-        
-        if (item.mei_codes && item.mei_codes.length > 0) {
-          item.mei_codes.forEach((imei: string, idx: number) => {
-            const imeiText = `IMEI${idx + 1}: ${imei}`.substring(0, 19);
-            txtContent += `│    │ ${imeiText.padEnd(19)} │    │         │\n`;
-          });
-        }
-      });
-      
-      txtContent += "└────┴─────────────────────┴────┴─────────┘\n";
-      txtContent += "\n";
-      
-      // TOTALES
-      txtContent += doubleLine;
-      txtContent += justifyText("TOTAL A PAGAR:", `${sale.total_sale} Bs.`);
-      txtContent += "\n";
-      txtContent += justifyText("FORMA DE PAGO:", sale.type_of_payment.toUpperCase());
-      txtContent += "\n";
-      txtContent += doubleLine;
-      
-      // PIE DE PÁGINA
-      txtContent += centerText("¡GRACIAS POR SU COMPRA!");
-      txtContent += "\n";
-      txtContent += centerText("GARANTÍA DE 12 MESES");
-      txtContent += centerText("SOLO DEFECTOS DE FÁBRICA");
-      txtContent += "\n";
-      txtContent += centerText("CONSERVE ESTE DOCUMENTO");
-      txtContent += centerText("PARA CUALQUIER RECLAMO");
-      txtContent += "\n";
-      txtContent += centerText(`Impreso: ${format(new Date(), "dd/MM/yyyy HH:mm:ss")}`);
-      txtContent += "\n\n\n";
-      
-      downloadTXTFile(txtContent, `Factura_${sale.id.slice(-8)}_${format(new Date(), "ddMMyyyy_HHmmss")}.txt`);
-      toast.success("Factura descargada como archivo TXT");
+      const invoiceContent = printer.generateInvoice(sale, saleProducts, storeData, employeeData);
+      await printer.print(invoiceContent);
+
     } catch (error) {
-      console.error("Error generating TXT invoice:", error);
-      toast.error("Error al generar la factura");
+      console.error("Error printing invoice:", error);
+      toast.error("Error al imprimir la factura");
     }
   };
 
-  const generateTXTWarranty = async (sale: Sale) => {
+  // Función para imprimir garantía
+  const handlePrintWarranty = async (sale: Sale) => {
+    if (!isPrinterConnected) {
+      toast.error("Primero debe conectar la impresora");
+      return;
+    }
+
     try {
       // Obtener información completa de la tienda y empleado
       const { data: storeData } = await supabase
@@ -600,134 +870,12 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
         `)
         .eq("sale_id", sale.id);
 
-      let txtContent = "";
-      
-      const centerText = (text: string) => {
-        const width = 42;
-        const padding = Math.max(0, Math.floor((width - text.length) / 2));
-        return " ".repeat(padding) + text + "\n";
-      };
-      
-      const justifyText = (left: string, right: string) => {
-        const width = 42;
-        const totalLength = left.length + right.length;
-        const spaces = Math.max(1, width - totalLength);
-        return left + " ".repeat(spaces) + right + "\n";
-      };
-      
-      const line = "==========================================\n";
-      const doubleLine = "==========================================\n";
-      
-      // LOGO ASCII
-      txtContent += STORE_LOGO + "\n";
-      
-      // Información de la tienda
-      if (storeData) {
-        txtContent += centerText(storeData.name.toUpperCase());
-        txtContent += centerText(storeData.address);
-      }
-      txtContent += centerText("TEL 422003");
-      txtContent += centerText("COCHABAMBA");
-      txtContent += centerText("BOLIVIA");
-      txtContent += centerText("NIT: 7255039");
-      txtContent += "\n";
-      
-      txtContent += centerText("CERTIFICADO");
-      txtContent += centerText("DE GARANTIA");
-      txtContent += centerText(`Nº ${sale.id.slice(-8).toUpperCase()}`);
-      txtContent += centerText(format(new Date(sale.sale_date), "dd/MM/yyyy HH:mm:ss"));
-      txtContent += "\n";
-      
-      txtContent += doubleLine;
-      
-      txtContent += `LUGAR Y FECHA: Cochabamba, ${format(new Date(sale.sale_date), "dd/MM/yyyy")}\n`;
-      txtContent += `CODIGO: ${sale.id.slice(-8).toUpperCase()} / NIT: 7255039\n`;
-      
-      if (sale.customer_name || sale.customer_ci) {
-        txtContent += `SEÑOR(ES): ${(sale.customer_name || 'CLIENTE').toUpperCase()}\n`;
-        if (sale.customer_ci) {
-          txtContent += `C.I.: ${sale.customer_ci}\n`;
-        }
-        if (sale.customer_phone) {
-          txtContent += `CELULAR: ${sale.customer_phone}\n`;
-        }
-      }
-      
-      if (employeeData) {
-        txtContent += `VENDEDOR: ${employeeData.first_name} ${employeeData.last_name}\n`;
-      }
-      
-      txtContent += "\n";
-      
-      // ADVERTENCIA IMPORTANTE
-      txtContent += "Recuerde que no habrá ningun tipo de garantia si\n";
-      txtContent += "el dispositivo presenta problemas tecnicos\n";
-      txtContent += "producidos por instalación de programas,\n";
-      txtContent += "actualizaciones, archivos y/o virus que afecte a su\n";
-      txtContent += "normal funcionamiento.\n";
-      txtContent += "\n";
-      
-      txtContent += doubleLine;
-      
-      // TABLA DE PRODUCTOS
-      txtContent += centerText("INFORMACIÓN DEL PRODUCTO");
-      txtContent += "\n";
-      txtContent += "┌────┬─────────────────────┬────┬─────────┐\n";
-      txtContent += "│ITEM│    DESCRIPCIÓN      │CANT│ SERIE(S)│\n";
-      txtContent += "├────┼─────────────────────┼────┼─────────┤\n";
-      
-      (saleProducts || []).forEach((item: any, index: number) => {
-        const itemNum = (index + 1).toString();
-        const description = `${item.products.name} ${item.products.color}`.substring(0, 19);
-        const barcode = (item.product_barcodes_store?.barcode || "N/A").substring(0, 7);
-        
-        txtContent += `│ ${itemNum}  │ ${description.padEnd(19)} │1.00│${barcode.padStart(8)} │\n`;
-        
-        if (item.mei_codes && item.mei_codes.length > 0) {
-          item.mei_codes.forEach((imei: string, idx: number) => {
-            const imeiCode = `IMEI${idx + 1}:${imei}`.substring(0, 7);
-            txtContent += `│    │                     │    │${imeiCode.padStart(8)} │\n`;
-          });
-        }
-      });
-      
-      txtContent += "└────┴─────────────────────┴────┴─────────┘\n";
-      txtContent += "\n";
-      
-      txtContent += doubleLine;
-      
-      // IMPORTANTE
-      txtContent += centerText("IMPORTANTE");
-      txtContent += "\n";
-      txtContent += "En caso de presentar alguna falla en el\n";
-      txtContent += "lapso de 24 hrs. al cliente tiene que\n";
-      txtContent += "hacer conocer a la tienda llamando al\n";
-      txtContent += "78333903.\n";
-      txtContent += "\n";
-      
-      txtContent += centerText("CONSERVE ESTE DOCUMENTO,");
-      txtContent += centerText("SIN CUALQUIER RECLAMO SIN LA");
-      txtContent += centerText("PRESENTACION DEL MISMO NO");
-      txtContent += centerText("HABRA NINGUNO.");
-      
-      txtContent += "\n";
-      
-      // FIRMA DEL CLIENTE
-      txtContent += doubleLine;
-      txtContent += "FIRMA DEL CLIENTE:\n\n";
-      txtContent += "________________________________________\n\n";
-      
-      // PIE DE PÁGINA
-      txtContent += centerText("GARANTÍA VÁLIDA POR 12 MESES");
-      txtContent += centerText("SOLO DEFECTOS DE FÁBRICA");
-      txtContent += centerText(`Impreso: ${format(new Date(), "dd/MM/yyyy HH:mm:ss")}`);
-      txtContent += "\n\n\n";
-      
-      downloadTXTFile(txtContent, `Garantia_${sale.id.slice(-8)}_${format(new Date(), "ddMMyyyy_HHmmss")}.txt`);
-      toast.success("Garantía descargada como archivo TXT");
+      const warrantyContent = printer.generateWarranty(sale, saleProducts, storeData, employeeData);
+      await printer.print(warrantyContent);
+
     } catch (error) {
-      console.error("Error generating TXT warranty:", error);
-      toast.error("Error al generar la garantía");
+      console.error("Error printing warranty:", error);
+      toast.error("Error al imprimir la garantía");
     }
   };
 
@@ -759,6 +907,41 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
   return (
     <div className="space-y-6">
       <Toaster />
+      
+      {/* Estado de la impresora */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Usb className={`w-6 h-6 ${isPrinterConnected ? 'text-green-600' : 'text-gray-400'}`} />
+            <span className="font-medium">
+              Estado de Impresora: {isPrinterConnected ? 'Conectada' : 'Desconectada'}
+            </span>
+          </div>
+          <div className="space-x-2">
+            {!isPrinterConnected ? (
+              <button
+                onClick={handleConnectPrinter}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                <Usb size={16} />
+                Conectar Impresora
+              </button>
+            ) : (
+              <button
+                onClick={handleDisconnectPrinter}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Desconectar
+              </button>
+            )}
+          </div>
+        </div>
+        {!isPrinterConnected && (
+          <p className="text-sm text-gray-600 mt-2">
+            Nota: Asegúrese de que la impresora Logic Controls LR1100U esté conectada via USB y los drivers estén instalados.
+          </p>
+        )}
+      </div>
       
       {/* Información del empleado */}
       <div className="bg-white rounded-lg shadow p-6">
@@ -1167,16 +1350,18 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                           </>
                         )}
                         <button
-                          onClick={() => generateTXTInvoice(sale)}
+                          onClick={() => handlePrintInvoice(sale)}
                           className="text-green-600 hover:text-green-800"
                           title="Imprimir Factura"
+                          disabled={!isPrinterConnected}
                         >
                           <Printer size={16} />
                         </button>
                         <button
-                          onClick={() => generateTXTWarranty(sale)}
+                          onClick={() => handlePrintWarranty(sale)}
                           className="text-purple-600 hover:text-purple-800"
                           title="Imprimir Garantía"
+                          disabled={!isPrinterConnected}
                         >
                           <Printer size={16} />
                         </button>
@@ -1213,14 +1398,16 @@ export const Sales: React.FC<SalesProps> = ({ exchangeRate }) => {
                       </button>
                     )}
                     <button
-                      onClick={() => generateTXTInvoice(sale)}
+                      onClick={() => handlePrintInvoice(sale)}
                       className="text-green-600 hover:text-green-800"
+                      disabled={!isPrinterConnected}
                     >
                       <Printer size={16} />
                     </button>
                     <button
-                      onClick={() => generateTXTWarranty(sale)}
+                      onClick={() => handlePrintWarranty(sale)}
                       className="text-purple-600 hover:text-purple-800"
+                      disabled={!isPrinterConnected}
                     >
                       <Printer size={16} />
                     </button>
