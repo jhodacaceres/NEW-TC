@@ -100,6 +100,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         icon: DollarSign,
         roles: ["administrador"],
       },
+      {
+        id: "invoice-settings",
+        label: "Config. Facturación",
+        icon: Settings,
+        roles: ["administrador"],
+      },
     ];
 
     // Filtrar elementos basados en el rol del empleado
