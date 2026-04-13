@@ -1,0 +1,323 @@
+-- ==============================================================================
+-- 1. EXTENSIONES NECESARIAS
+-- ==============================================================================
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- ==============================================================================
+-- 2. CREACIÓN DE TABLAS
+-- ==============================================================================
+
+CREATE TABLE public.stores (
+    id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    name text,
+    address text
+);
+
+CREATE TABLE public.employees (
+    id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    first_name text NOT NULL,
+    last_name text NOT NULL,
+    "position" text,
+    phone text,
+    username text,
+    password text,
+    active boolean DEFAULT true,
+    store_id uuid REFERENCES public.stores(id)
+);
+
+CREATE TABLE public.exchange_rates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    rate numeric(10,2),
+    employee_id uuid REFERENCES public.employees(id),
+    created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.products (
+    id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    name text NOT NULL,
+    cost_price numeric(10,2),
+    stock_quantity integer DEFAULT 0,
+    created_at timestamp with time zone DEFAULT now(),
+    image text,
+    color text,
+    profit_bob integer,
+    store_id uuid REFERENCES public.stores(id),
+    updated_at timestamp with time zone DEFAULT now(),
+    employee_id uuid REFERENCES public.employees(id),
+    ram integer,
+    rom integer,
+    processor text,
+    active boolean DEFAULT true
+);
+
+CREATE TABLE public.product_barcodes_store (
+    id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    store_id uuid NOT NULL REFERENCES public.stores(id) ON DELETE CASCADE,
+    product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    barcode text NOT NULL UNIQUE,
+    is_sold boolean DEFAULT false,
+    created_at timestamp with time zone DEFAULT now(),
+    sold_at timestamp with time zone
+);
+
+CREATE TABLE public.suppliers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    first_name text,
+    last_name text,
+    phone text,
+    employee_id uuid REFERENCES public.employees(id),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.purchase_orders (
+    id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    order_date timestamp with time zone DEFAULT now(),
+    total_amount numeric(10,2),
+    employee_id uuid REFERENCES public.employees(id),
+    supplier_id uuid REFERENCES public.suppliers(id),
+    status text,
+    price_unit double precision,
+    paid_amount numeric DEFAULT 0,
+    balance_due numeric DEFAULT 0.00
+);
+
+CREATE TABLE public.purchase_order_items (
+    id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    order_id uuid REFERENCES public.purchase_orders(id),
+    product_id uuid REFERENCES public.products(id),
+    quantity integer,
+    total_price numeric(10,2)
+);
+
+CREATE TABLE public.purchase_order_payments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    order_id uuid NOT NULL REFERENCES public.purchase_orders(id) ON DELETE CASCADE,
+    payment_date timestamp with time zone DEFAULT now(),
+    amount numeric NOT NULL,
+    payment_method text,
+    employee_id uuid REFERENCES public.employees(id) ON DELETE SET NULL
+);
+
+CREATE TABLE public.purchase_order_reminders (
+    id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    order_id uuid NOT NULL REFERENCES public.purchase_orders(id),
+    product_id uuid NOT NULL REFERENCES public.products(id),
+    quantity_pending integer NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    resolved_at timestamp with time zone,
+    is_resolved boolean DEFAULT false
+);
+
+CREATE TABLE public.sales (
+    id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    sale_date timestamp with time zone DEFAULT now(),
+    total_sale numeric(10,2),
+    employee_id uuid REFERENCES public.employees(id),
+    type_of_payment character varying,
+    quantity_products bigint,
+    store_id uuid REFERENCES public.stores(id),
+    customer_name text,
+    customer_ci text,
+    customer_phone text
+);
+
+CREATE TABLE public.sale_product (
+    id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    sale_id uuid REFERENCES public.sales(id),
+    product_id uuid REFERENCES public.products(id),
+    barcode_id uuid REFERENCES public.product_barcodes_store(id),
+    mei_codes text[]
+);
+COMMENT ON TABLE public.sale_product IS 'It is a table that relates sales and products.';
+
+CREATE TABLE public.transfers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    transfer_date timestamp with time zone DEFAULT now(),
+    employee_id uuid REFERENCES public.employees(id),
+    store_origin_id uuid REFERENCES public.stores(id),
+    store_destiny_id uuid REFERENCES public.stores(id)
+);
+
+CREATE TABLE public.transfer_product (
+    id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    product_id uuid REFERENCES public.products(id),
+    transfer_id uuid REFERENCES public.transfers(id),
+    barcode_id uuid REFERENCES public.product_barcodes_store(id)
+);
+COMMENT ON TABLE public.transfer_product IS 'This table is an union it between trsnsfer table and product table';
+
+
+-- ==============================================================================
+-- 3. CREACIÓN DE FUNCIONES
+-- ==============================================================================
+
+CREATE OR REPLACE FUNCTION public.get_infoproduct_by_barcode(barcodeparam text) RETURNS json
+    LANGUAGE plpgsql
+    AS $$
+declare
+  result json;
+begin
+  select json_agg(row_data)
+  into result
+  from (
+  SELECT pb.barcode, p.name, p.cost_price, p.stock_quantity,
+  p.image, p.color, p.id  
+  FROM products p 
+  INNER JOIN product_barcodes_store pb
+  ON pb.product_id = p.id
+  where pb.barcode like barcodeparam || '%'
+  ) as row_data;
+
+  return result;
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_sales_paginated(limit_count integer, offset_count integer) RETURNS json
+    LANGUAGE plpgsql
+    AS $$
+declare
+  result json;
+begin
+  select json_agg(row_data)
+  into result
+  from (
+    select
+      s.id as sale_id,
+      s.sale_date as date,
+      s.total_sale,
+      e.first_name as seller_first_name,
+      e.last_name as seller_last_name,
+      json_agg(json_build_object('product_id', p.id ,'name_product', p.name)) as details
+    from sales s
+    join sale_product sp on s.id = sp.sale_id
+    join products p on sp.product_id = p.id
+    join employees e on s.employee_id = e.id
+    group by s.id, s.sale_date, s.total_sale, e.first_name, e.last_name
+    order by s.sale_date desc
+    limit limit_count
+    offset offset_count
+  ) as row_data;
+
+  return result;
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION public.insert_sale_original(p_type_of_payment text, p_quantity_products integer, p_total_sale double precision, p_employee_id uuid, p_product_ids uuid[]) RETURNS text
+    LANGUAGE plpgsql
+    AS $$
+declare
+  v_sale_id uuid;
+  i uuid;
+begin
+  insert into sales (total_sale, type_of_payment, quantity_products, employee_id)
+  values (p_total_sale, p_type_of_payment, p_quantity_products, p_employee_id)
+  returning id into v_sale_id;
+
+  foreach i in array p_product_ids loop
+    insert into sale_product (sale_id, product_id)
+    values (v_sale_id, i);
+  end loop;
+
+  return 'El registro de la venta fue exitosa';
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION public.insert_transfer(e_id uuid, s_o_id uuid, s_d_id uuid, p_ids uuid[]) RETURNS text
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  id_transfer_last uuid;
+  p uuid;
+BEGIN
+  INSERT INTO transfers (store_origin_id, store_destiny_id, employee_id)
+  VALUES (s_o_id, s_d_id, e_id)
+  RETURNING id INTO id_transfer_last;
+
+  IF array_length(p_ids, 1) IS NULL THEN
+    RETURN 'No se recibieron productos';
+  END IF;
+
+  FOREACH p IN ARRAY p_ids LOOP
+    INSERT INTO transfer_product (product_id, transfer_id)
+    VALUES (p, id_transfer_last);
+  END LOOP;
+
+  RETURN 'La transferencia fue exitosa';
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.select_transfer_paginated(limit_count integer, offset_count integer) RETURNS json
+    LANGUAGE sql
+    AS $$
+SELECT json_agg(result) FROM (
+  SELECT
+    t.id as transfer_id,
+    t.transfer_date,
+    so.name as store_origin,
+    sd.name as store_destiny,
+    e.first_name || ' ' || e.last_name as employee_name,
+    json_agg(
+      json_build_object(
+        'product_id', p.id,
+        'product_name', p.name
+      )
+    ) as products
+  FROM transfers t
+  JOIN employees e ON e.id = t.employee_id
+  JOIN stores so ON so.id = t.store_origin_id
+  JOIN stores sd ON sd.id = t.store_destiny_id
+  JOIN transfer_product tp ON tp.transfer_id = t.id
+  JOIN products p ON p.id = tp.product_id
+  GROUP BY t.id, t.transfer_date, so.name, sd.name, e.first_name, e.last_name
+  ORDER BY t.transfer_date DESC
+  LIMIT limit_count OFFSET offset_count
+) as result;
+$$;
+
+CREATE OR REPLACE FUNCTION public.ventas_por_mes() RETURNS TABLE(mes text, total numeric)
+    LANGUAGE sql
+    AS $$
+  select 
+    case extract(month from sale_date)::int
+      when 1 then 'Ene'
+      when 2 then 'Feb'
+      when 3 then 'Mar'
+      when 4 then 'Abr'
+      when 5 then 'May'
+      when 6 then 'Jun'
+      when 7 then 'Jul'
+      when 8 then 'Ago'
+      when 9 then 'Sep'
+      when 10 then 'Oct'
+      when 11 then 'Nov'
+      when 12 then 'Dic'
+    end as mes,
+    sum(total_sale) as total -- <--- EL CAMBIO ESTÁ AQUÍ
+  from sales
+  group by 1, extract(month from sale_date)
+  order by extract(month from sale_date);
+$$;
+
+-- ==============================================================================
+-- 4. SEGURIDAD A NIVEL DE FILAS (RLS) Y POLÍTICAS
+-- ==============================================================================
+
+ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_barcodes_store ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.purchase_order_payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.suppliers ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Enable insert for authenticated users only" ON public.employees FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Enable read access for all users" ON public.employees FOR SELECT USING (true);
+
+CREATE POLICY "Allow all for authenticated users" ON public.product_barcodes_store TO authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY "Enable update for products" ON public.products FOR UPDATE USING (true) WITH CHECK (true);
+
+CREATE POLICY "Enable insert for authenticated users only" ON public.purchase_order_payments FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Enable read access for all users" ON public.purchase_order_payments FOR SELECT USING (true);
+
+CREATE POLICY "Allow read" ON public.suppliers FOR SELECT USING (true);

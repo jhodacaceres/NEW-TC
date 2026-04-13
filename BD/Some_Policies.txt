@@ -1,0 +1,20 @@
+-- =======================================================
+-- 1. PERMISOS PARA EL BUCKET (Sin exigir token oficial)
+-- =======================================================
+DROP POLICY IF EXISTS "Storage_Insert_Auth" ON storage.objects;
+DROP POLICY IF EXISTS "Storage_Update_Auth" ON storage.objects;
+DROP POLICY IF EXISTS "Storage_Delete_Auth" ON storage.objects;
+DROP POLICY IF EXISTS "Storage_Select_All" ON storage.objects;
+
+-- Creamos una política que permite subir y ver fotos a cualquiera (tu React)
+CREATE POLICY "Permitir_Todo_Storage" ON storage.objects FOR ALL USING (bucket_id = 'product-images') WITH CHECK (bucket_id = 'product-images');
+
+
+-- =======================================================
+-- 2. PERMISOS PARA LOS PRODUCTOS (Sin exigir token oficial)
+-- =======================================================
+DROP POLICY IF EXISTS "Productos_All_Auth" ON public.products;
+DROP POLICY IF EXISTS "Productos_Select_All" ON public.products;
+
+-- Permitimos que tu React pueda crear, editar y borrar productos libremente
+CREATE POLICY "Permitir_Todo_Productos" ON public.products FOR ALL USING (true) WITH CHECK (true);

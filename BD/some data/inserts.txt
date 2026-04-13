@@ -1,0 +1,267 @@
+-- 1. STORES
+INSERT INTO public.stores (id, name, address) VALUES
+('e24db9e8-0cd2-47d3-a37a-36332a1a576e', 'Sucursal sud', 'av villazon1'),
+('66b418af-22f4-48e4-8db7-7301b89e69ae', 'Sucursal Norte', 'Av. ayacucho'),
+('0510f52e-8e34-455d-946b-048351d68207', 'Sucursal Este', 'street L.A.');
+
+-- 2. EMPLOYEES
+INSERT INTO public.employees (id, first_name, last_name, "position", phone, username, password, active, store_id) VALUES
+('a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1', 'Juliana', 'One', 'administrador', '23213123213', 'Juliana', '123456', true, 'e24db9e8-0cd2-47d3-a37a-36332a1a576e'),
+('5fa3487c-e2f6-4730-8b49-6d81e10b8f28', 'Maria', 'Santos', 'ventas', '67930840', 'Mari', '123456', true, '0510f52e-8e34-455d-946b-048351d68207');
+
+-- 3. SUPPLIERS
+INSERT INTO public.suppliers (id, first_name, last_name, phone, employee_id, created_at, updated_at) VALUES
+('2736149c-6ed2-43d5-aa44-a76043c159ba', 'Rodrigo', 'Pacheco', '67930840', NULL, '2025-05-04 21:45:26.713+00', '2025-05-04 21:45:26.713+00'),
+('7a2dcbf3-ed00-426b-a5d4-c558b98bb7e1', 'ALISOM', 'VILLAVICENCIO', '4718127', NULL, '2025-05-04 21:46:34.502+00', '2025-05-04 21:46:34.502+00'),
+('b9c2394c-5503-408f-8b81-58866b9ca05f', 'Abigail', '.', '2364841', NULL, '2025-07-03 04:51:58.133+00', '2025-07-03 04:51:58.133+00');
+
+-- 4. PRODUCTS
+INSERT INTO public.products (id, name, cost_price, stock_quantity, created_at, image, color, profit_bob, store_id, updated_at, employee_id, ram, rom, processor, active) VALUES
+('60fda9e7-d773-4944-aa6f-7c733688ed1f', 'HUAWEI Mate XT', 3000.00, 0, '2025-06-29 08:03:33.047+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1751184208839.jpeg', 'RED', 200, NULL, '2025-06-30 03:48:21.373+00', NULL, 16, 120, 'intel', true),
+('6209bf76-0865-4488-9ffa-fbe584f7e3e1', 'Iphone 16', 600.00, 0, '2025-06-29 08:11:34.398+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1751184693386.jpeg', 'Blue', 200, NULL, '2025-06-29 08:11:34.398+00', NULL, 6, 64, 'intel', true),
+('bffb1a70-35c1-489f-b4bd-a017f2eb13ed', 'Apple Watch Series 9', 200.00, 0, '2025-06-29 08:16:58.852+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1751185017394.jpeg', 'Pínk', 300, NULL, '2025-06-29 08:16:58.852+00', NULL, 2, 200, '2', true),
+('6b27483f-ba83-4d2d-bd79-cf9f84c1b77f', 'Iphone 16', 600.00, 0, '2025-06-29 08:11:34.254+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1751184693386.jpeg', 'Purpura', 200, NULL, '2025-07-04 23:09:51.109+00', NULL, 6, 64, 'intel', false),
+('fe383ed6-1aea-4895-8591-a8dcbe3e1414', 'HUAWEI Mate XT', 600.00, 0, '2025-06-29 08:03:33.228+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1751184208839.jpeg', 'RED', 200, NULL, '2025-06-29 08:03:33.229+00', NULL, 16, 120, 'intel', false),
+('066fcd79-da3b-4fde-ab54-75f5159a8904', 'algo', 200.00, 2, '2025-06-29 08:03:33.047+00', NULL, 'RED', NULL, '0510f52e-8e34-455d-946b-048351d68207', NULL, 'a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1', 8, 120, 'Intel', false),
+('1d6cfa02-1200-42d1-bd8c-3136c92a5225', 'Iphone 16', 45.00, 0, '2025-05-04 22:56:46.918514+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1747065086404.jpeg', 'Verde', 45, '66b418af-22f4-48e4-8db7-7301b89e69ae', '2025-05-12 15:52:00.562+00', NULL, NULL, NULL, NULL, true),
+('2546593a-5301-41d4-9a1f-2f99d441948e', 'Iphone 16', 900.00, 0, '2025-05-04 22:43:41.814424+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1747065042378.webp', 'Rosa', 300, '66b418af-22f4-48e4-8db7-7301b89e69ae', '2025-06-29 21:10:00.224+00', NULL, 22, 200, 'Intel', true),
+('57b616a9-5ec4-4c6a-a3cf-3baf1b38b5f4', 'Airpod', 200.00, 0, '2025-06-29 22:13:37.184+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1751235215436.jpeg', 'White', 200, NULL, '2025-06-29 22:16:17.18+00', NULL, 0, 0, '0', false),
+('a7f03e54-8de5-46d0-a171-5bca52ad395b', 'Honor X10G', 200.00, 2, '2025-06-29 07:57:18.052+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1751183836996.jpg', 'Blue', 70, NULL, '2025-06-29 07:57:30.080152+00', NULL, 8, 200, 'SnapDragon', false),
+('1fc09ef0-121d-4e7f-8674-778daa31279e', 'Huawei', 300.00, 3, '2025-05-23 17:18:55.655+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1748020735002.png', 'Red', 200, '66b418af-22f4-48e4-8db7-7301b89e69ae', '2025-05-23 17:18:53.591212+00', NULL, 34, 2, 'android', false),
+('326042b0-bf0f-4ca2-aadf-693dc36f8517', 'Honor X8C', 200.00, 0, '2025-05-04 22:26:47.407256+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1747064919582.jpg', 'Verde Claro', 70, 'e24db9e8-0cd2-47d3-a37a-36332a1a576e', '2025-07-04 23:10:18.249+00', NULL, 34, 2303, 'intel', true),
+('68805add-5348-472c-bc90-07dd9610edae', 'Airpod', 200.00, 0, '2025-06-29 22:13:36.994+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1751235215436.jpeg', 'White', 200, NULL, '2025-06-29 22:18:03.114+00', NULL, 0, 0, '0', true),
+('1a0f49d0-40b5-4b86-8c75-ac29dc44b848', 'sansun 34', 600.00, 34, '2025-05-23 15:16:02.54+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1748013361026.jpg', 'vlack', 344, 'e24db9e8-0cd2-47d3-a37a-36332a1a576e', '2025-05-24 00:56:24.999+00', NULL, 4, 4, 'android', false),
+('723cabb7-3996-46e6-bca9-db09b72f9074', 'Apple Watch Series 9', 200.00, 0, '2025-06-29 08:16:58.703+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1751185017394.jpeg', 'Pínk', 300, NULL, '2025-06-29 08:17:10.68987+00', NULL, 2, 200, '2', false),
+('2b6ebc2e-02b9-491e-9739-a0603029d6de', 'Samsun S24 Ultra Negro', 300.00, 0, '2025-05-11 20:17:39.54+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1747064517070.jpg', 'black', 400, 'e24db9e8-0cd2-47d3-a37a-36332a1a576e', '2025-05-30 20:37:37.399+00', NULL, 2, 2, 'SnapDragon', true),
+('e3ec95a2-0605-4af8-a882-87db524f4865', 'Xiaomi WATCH 2', 300.00, 0, '2025-06-29 08:08:40.228+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1751184519266.jpeg', 'Negro', 200, NULL, '2025-07-06 17:15:56.117+00', NULL, 2, 10, 'intel', true),
+('99242da6-3324-45e6-8d21-72bfd17f3ab0', 'Honor X8C', 200.00, 0, '2025-05-12 15:53:31.661+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1747073920766.jpg', 'Verde', 70, '0510f52e-8e34-455d-946b-048351d68207', '2025-05-12 18:19:40.803+00', NULL, NULL, NULL, NULL, true),
+('fb3c0fd3-0a82-47cf-b0f1-c09817439f09', 'Samsun S24 Ultra', 300.00, 0, '2025-05-11 20:17:39.715+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1747064545246.jpg', 'Negro', 400, '0510f52e-8e34-455d-946b-048351d68207', '2025-05-12 15:52:24.243+00', NULL, NULL, NULL, NULL, true),
+('3548b92e-b10f-4cac-9995-9a0bde956aa5', 'Honor X10G', 200.00, 2, '2025-06-29 07:57:18.227+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1751183836996.jpg', 'Blue', 70, NULL, '2025-06-29 07:57:18.227+00', NULL, 8, 200, 'SnapDragon', true),
+('29feeb4f-c4f8-4251-bdb9-dad7e5fbcb75', 'Xiaomi WATCH 2', 200.00, 0, '2025-06-29 08:08:40.378+00', 'https://vliaxbacgyiqpliqedhg.supabase.co/storage/v1/object/public/product-images/products/1751184519266.jpeg', 'Negro', 200, NULL, '2025-06-29 08:08:40.378+00', NULL, 2, 10, 'intel', false);
+
+-- 5. PRODUCT BARCODES
+INSERT INTO public.product_barcodes_store (id, store_id, product_id, barcode, is_sold, created_at, sold_at) VALUES
+('ec15d71b-d4dc-48a4-bb7f-4d539a0c29d2', '66b418af-22f4-48e4-8db7-7301b89e69ae', '60fda9e7-d773-4944-aa6f-7c733688ed1f', '3213213213213', true, '2025-07-02 02:02:59.419492+00', '2025-07-02 02:34:11.073+00'),
+('9430f819-0bf3-49e5-b7a9-80c0245cc677', '0510f52e-8e34-455d-946b-048351d68207', '3548b92e-b10f-4cac-9995-9a0bde956aa5', '7791293049595', true, '2025-07-01 14:09:51.165967+00', '2025-07-02 02:34:11.357+00'),
+('5e1bb3d8-aed2-4058-b550-a5028db5ab84', '66b418af-22f4-48e4-8db7-7301b89e69ae', '60fda9e7-d773-4944-aa6f-7c733688ed1f', '321321321', true, '2025-07-02 02:03:07.428135+00', '2025-07-02 02:34:11.646+00'),
+('fa81d72b-f3f8-478e-a133-7ae9f6f8d265', '0510f52e-8e34-455d-946b-048351d68207', '6b27483f-ba83-4d2d-bd79-cf9f84c1b77f', '321', true, '2025-07-02 02:58:10.224633+00', '2025-07-02 07:39:24.508+00'),
+('8a8eb24e-789e-46c0-bfe2-1324d3a7c1fe', '0510f52e-8e34-455d-946b-048351d68207', '6b27483f-ba83-4d2d-bd79-cf9f84c1b77f', '321321', true, '2025-07-02 08:12:14.027552+00', '2025-07-02 09:03:21.12+00'),
+('f60440fd-98e8-4c71-bbf2-5dd983fa8aff', '0510f52e-8e34-455d-946b-048351d68207', '6b27483f-ba83-4d2d-bd79-cf9f84c1b77f', '23213', true, '2025-07-02 08:12:16.240747+00', '2025-07-02 09:03:21.441+00'),
+('2a7a0732-4a2d-4c22-85df-24d195f2e2c7', 'e24db9e8-0cd2-47d3-a37a-36332a1a576e', '1d6cfa02-1200-42d1-bd8c-3136c92a5225', '322225', false, '2025-07-02 21:14:57.689082+00', NULL),
+('b8d09b54-1b46-494a-a6ea-d084fe02949c', 'e24db9e8-0cd2-47d3-a37a-36332a1a576e', '1d6cfa02-1200-42d1-bd8c-3136c92a5225', '44444', false, '2025-07-02 21:15:03.426273+00', NULL),
+('a78490ef-f495-4722-ac51-0e51764f0942', 'e24db9e8-0cd2-47d3-a37a-36332a1a576e', '1d6cfa02-1200-42d1-bd8c-3136c92a5225', '333222', false, '2025-07-02 21:15:07.530118+00', NULL),
+('8bc21f1b-db84-41ba-8a65-a1226b16e765', 'e24db9e8-0cd2-47d3-a37a-36332a1a576e', 'e3ec95a2-0605-4af8-a882-87db524f4865', '333327', false, '2025-07-02 21:15:28.584494+00', NULL),
+('03417f41-4db2-4d94-9a92-be9e0354c4b1', 'e24db9e8-0cd2-47d3-a37a-36332a1a576e', 'e3ec95a2-0605-4af8-a882-87db524f4865', '114333', false, '2025-07-02 21:15:35.382165+00', NULL),
+('43c3886e-a056-4ee1-9097-e6efea2f0c73', 'e24db9e8-0cd2-47d3-a37a-36332a1a576e', 'e3ec95a2-0605-4af8-a882-87db524f4865', '765535', false, '2025-07-02 21:15:39.513155+00', NULL),
+('34c2509c-7f90-44b6-8cfb-e2dea0d2be64', '66b418af-22f4-48e4-8db7-7301b89e69ae', '326042b0-bf0f-4ca2-aadf-693dc36f8517', '86544', false, '2025-07-02 21:16:33.724729+00', NULL),
+('c67b6771-7fe2-46a0-b03b-cad3bead51ad', '66b418af-22f4-48e4-8db7-7301b89e69ae', '326042b0-bf0f-4ca2-aadf-693dc36f8517', '87644', false, '2025-07-02 21:16:37.282245+00', NULL),
+('7a957caf-b8e6-4cb3-be30-9f9834634e33', '66b418af-22f4-48e4-8db7-7301b89e69ae', 'a7f03e54-8de5-46d0-a171-5bca52ad395b', '346544', false, '2025-07-02 21:17:01.613138+00', NULL),
+('d1780795-d962-4a62-81cb-acc7ad3418df', '0510f52e-8e34-455d-946b-048351d68207', '723cabb7-3996-46e6-bca9-db09b72f9074', '4456', false, '2025-07-02 21:17:52.580391+00', NULL),
+('fa3beb41-a242-4d94-b5f8-8efd501452f8', '0510f52e-8e34-455d-946b-048351d68207', '723cabb7-3996-46e6-bca9-db09b72f9074', '79245', false, '2025-07-02 21:17:59.987148+00', NULL),
+('4de85877-6f94-4328-8279-53dba2ff8805', '0510f52e-8e34-455d-946b-048351d68207', '1d6cfa02-1200-42d1-bd8c-3136c92a5225', '755', false, '2025-07-02 21:18:31.9887+00', NULL),
+('7a803066-7afb-45fc-a0d6-5230b3be584c', '0510f52e-8e34-455d-946b-048351d68207', '2546593a-5301-41d4-9a1f-2f99d441948e', '644t', false, '2025-07-02 21:18:50.532393+00', NULL),
+('9eeea4ca-1456-4adc-9964-471591f53cdb', '66b418af-22f4-48e4-8db7-7301b89e69ae', '326042b0-bf0f-4ca2-aadf-693dc36f8517', '5336', true, '2025-07-02 21:16:30.006537+00', '2025-07-03 20:40:18.037+00'),
+('f2be74e7-4b75-4882-8a43-3897fa76cb28', '66b418af-22f4-48e4-8db7-7301b89e69ae', '6b27483f-ba83-4d2d-bd79-cf9f84c1b77f', '65446', false, '2025-07-02 21:17:13.146342+00', NULL),
+('9bc03384-d026-4b1e-8ac4-0b0ae21a67c8', '0510f52e-8e34-455d-946b-048351d68207', '6b27483f-ba83-4d2d-bd79-cf9f84c1b77f', '76437', true, '2025-07-02 21:17:34.463161+00', '2025-07-04 19:09:34.67+00'),
+('c77da433-67dd-48ad-808d-2cabf4d4d33d', '0510f52e-8e34-455d-946b-048351d68207', '1d6cfa02-1200-42d1-bd8c-3136c92a5225', '35633', true, '2025-07-02 21:18:28.642555+00', '2025-07-04 19:09:35.031+00'),
+('5fbfdd66-a502-4d6f-a0d3-3cc448bfce93', '0510f52e-8e34-455d-946b-048351d68207', 'a7f03e54-8de5-46d0-a171-5bca52ad395b', '54675', false, '2025-07-02 21:16:49.639579+00', NULL),
+('f147db13-039d-464d-a8a2-ebcc769946d0', '0510f52e-8e34-455d-946b-048351d68207', '2546593a-5301-41d4-9a1f-2f99d441948e', '754356', true, '2025-07-02 21:18:46.913148+00', '2025-07-05 16:19:53.437+00'),
+('4ba4e00b-0049-436e-bd70-202485ff128b', '66b418af-22f4-48e4-8db7-7301b89e69ae', '60fda9e7-d773-4944-aa6f-7c733688ed1f', '324225', true, '2025-07-02 21:16:07.135292+00', '2025-07-06 21:16:54.182+00'),
+('3a0dc89b-0f00-4821-8fd7-1a52a66db8e9', '66b418af-22f4-48e4-8db7-7301b89e69ae', '60fda9e7-d773-4944-aa6f-7c733688ed1f', '1321231', false, '2025-07-06 21:56:38.130736+00', NULL),
+('65672667-65dc-4cf0-a19b-d12c520f7e54', '66b418af-22f4-48e4-8db7-7301b89e69ae', '60fda9e7-d773-4944-aa6f-7c733688ed1f', '23123', false, '2025-07-06 21:56:45.139107+00', NULL),
+('5d3e4108-3934-4331-a763-42cf7b471e7c', '66b418af-22f4-48e4-8db7-7301b89e69ae', '60fda9e7-d773-4944-aa6f-7c733688ed1f', '465465', false, '2025-07-06 21:56:53.997766+00', NULL),
+('185424e7-d750-49a6-a165-e06e61255c31', '66b418af-22f4-48e4-8db7-7301b89e69ae', 'a7f03e54-8de5-46d0-a171-5bca52ad395b', '76546', true, '2025-07-02 21:16:54.233251+00', '2025-07-07 02:09:19.233+00'),
+('8a4f7f48-6bef-4acd-be53-884ad3a94e17', '66b418af-22f4-48e4-8db7-7301b89e69ae', '60fda9e7-d773-4944-aa6f-7c733688ed1f', '6532', true, '2025-07-02 21:16:11.631554+00', '2025-07-07 02:09:19.581+00'),
+('b5f2beea-58a8-4d7b-bf20-20ac0d017000', '0510f52e-8e34-455d-946b-048351d68207', '3548b92e-b10f-4cac-9995-9a0bde956aa5', '21321', false, '2025-07-11 05:54:51.444625+00', NULL),
+('e45a61be-9b8a-465d-92f3-a2f7c7511cb2', 'e24db9e8-0cd2-47d3-a37a-36332a1a576e', '6b27483f-ba83-4d2d-bd79-cf9f84c1b77f', '8876', false, '2025-07-02 21:17:16.275191+00', NULL);
+
+-- 6. EXCHANGE RATES
+INSERT INTO public.exchange_rates (id, rate, employee_id, created_at) VALUES
+('6009c180-7128-465c-84c9-eb088bcf09a2', 12.40, NULL, '2025-05-04 23:23:10.563+00'),
+('91619a03-e668-4831-b9e6-bc5cf39362f9', 7.00, NULL, '2025-05-04 23:24:07.748+00'),
+('b64a7edf-67ed-46f1-8419-97a780e8d75b', 13.00, NULL, '2025-05-05 17:24:37.047+00'),
+('ef800514-689b-45b5-a2d4-7b6ed658c5d4', 13.00, NULL, '2025-05-05 17:24:36.097+00'),
+('f777d67c-da52-4ef1-a9a7-4c498e1b0c7f', 10.00, NULL, '2025-05-12 15:08:19.515+00'),
+('f34fbe39-5b0e-41c4-9fea-1d4e02f6e8d5', 11.00, NULL, '2025-05-12 15:17:19.324+00'),
+('bfcb62c8-f96b-411a-95d5-16b0c02d513c', 15.30, NULL, '2025-05-12 17:42:22.04+00'),
+('f29f3cec-b978-4537-8967-ac3af65c9993', 15.32, NULL, '2025-05-12 17:42:54.394+00'),
+('90fdf525-06e3-4285-8204-be51fdd13939', 0.03, NULL, '2025-05-13 00:03:36.356+00'),
+('047ae493-d0cf-4ff6-bc9a-c2578b8bb838', 10.50, NULL, '2025-05-13 00:50:59.207+00'),
+('f0ebf29d-2c0d-461f-b85d-d00941c7a8bd', 0.00, NULL, '2025-05-13 00:50:59.217+00'),
+('b682d90f-377e-44f9-b6ed-348c1fc55cb9', 0.00, NULL, '2025-05-13 00:51:14.846+00'),
+('09f08215-a7f2-427a-a746-32fab53d7210', 0.00, NULL, '2025-05-13 00:51:14.855+00'),
+('968b2748-312a-427d-afe4-8d2b48c8dafd', 0.00, NULL, '2025-05-13 00:51:33.282+00'),
+('27fab5bf-6557-4984-a2f9-5e5d9b9a8be7', 15.30, NULL, '2025-05-13 00:51:33.28+00'),
+('f55ad536-3b9c-4ea0-aff2-346235709e58', 14.30, NULL, '2025-05-13 00:52:13.088+00'),
+('99997724-f2c0-45f7-a58a-8177887eb215', 0.00, NULL, '2025-05-13 00:52:13.098+00'),
+('0e69200d-d331-40a7-a987-9ab059254114', 23.00, NULL, '2025-05-24 01:06:06.518+00'),
+('616410bf-0d47-4359-b1a6-550af17b1835', 16.00, NULL, '2025-05-30 20:38:54.172+00'),
+('63c42e96-4969-4a9d-a9e9-3d7353be82a0', 0.00, NULL, '2025-05-30 21:06:37.499+00'),
+('850b7390-a890-4e38-9893-0b9a512ad09c', 0.00, NULL, '2025-05-30 21:06:37.498+00'),
+('e62e94a0-d261-44e9-8998-e15cc0639fc8', 0.00, NULL, '2025-05-30 21:06:44.736+00'),
+('8bbf5c6b-e1d6-43a4-ab33-e315b6ce3147', 16.00, NULL, '2025-05-30 21:06:44.735+00'),
+('bc13f8f6-2236-4fb6-9cd0-2662f757d4ad', 16.00, NULL, '2025-05-30 21:07:46.689+00'),
+('1057fafd-6e67-4530-ad8a-8f1e0a0e6751', 7.00, NULL, '2025-05-30 21:07:57.016+00'),
+('c346d65e-cc13-4a50-8f33-e3e77b0f1002', 0.00, NULL, '2025-05-30 21:30:35.742+00'),
+('07d822d0-36b7-4c07-a0ec-62537422d4c7', 16.00, NULL, '2025-05-30 21:30:35.741+00'),
+('c45c1681-2293-4803-a060-e9781a7b9d77', 16.20, NULL, '2025-05-31 05:16:47.528+00'),
+('cf5047f3-8650-443e-a298-64bcbdc49290', 0.00, NULL, '2025-05-31 05:16:47.529+00'),
+('e805c3ab-ea7c-4549-aa9e-31734060f12f', 0.00, NULL, '2025-05-31 05:17:26.392+00'),
+('ec30a38c-bd72-41e7-99c0-bdbe357b7e77', 13.00, NULL, '2025-05-31 05:17:26.389+00'),
+('39de3414-35b2-40b8-a54a-bffcf15570fe', 13.00, NULL, '2025-05-31 05:17:27.934+00'),
+('dc69bf48-dc24-4cc0-af54-dcc71df3e1fe', 0.00, NULL, '2025-05-31 05:17:27.941+00'),
+('ba697efb-663d-488e-a862-92705f3b6c45', 0.00, NULL, '2025-05-31 05:18:15.635+00'),
+('b23cc178-71ce-4b95-9c1f-cc0f8bd30877', 1.00, NULL, '2025-05-31 05:18:15.628+00'),
+('1f1ba12b-c4e9-4711-984a-3cb86d900145', 0.00, NULL, '2025-05-31 05:18:20.087+00'),
+('2d2b3e18-a8b4-4f9a-8bf9-879ed5f46393', 0.00, NULL, '2025-05-31 05:18:20.096+00'),
+('bbc778f8-2e86-4370-9ac6-a29230f7526c', 0.00, NULL, '2025-05-31 05:18:24.563+00'),
+('fe39ba53-0aae-4cd5-959e-e02abac84955', 12.00, NULL, '2025-05-31 05:18:24.557+00'),
+('be7b5580-af3d-4f02-bf5f-b7a7413fe296', 12.00, NULL, '2025-05-31 05:18:36.675+00'),
+('81e7fa82-9af8-42fe-ae15-d826a3e45e2e', 0.00, NULL, '2025-05-31 05:18:36.68+00'),
+('1397dcaa-bda3-4b21-a13c-2e56a44b9954', 12.00, NULL, '2025-05-31 05:18:49.71+00'),
+('ecbe76ac-5bc9-4228-9297-3fd3f8225d53', 16.30, NULL, '2025-05-31 05:19:03.435+00'),
+('247f19ac-8ea9-4c0b-87b1-62c15f8f36a7', 16.00, NULL, '2025-05-31 05:21:07.678+00'),
+('99bf70ed-c508-4100-8ca4-b2a21b8e5abe', 0.00, NULL, '2025-06-14 19:59:03.981+00'),
+('5cff85da-4ed6-430f-a8c2-19413ac9b396', 16.33, NULL, '2025-06-16 02:46:09.111+00'),
+('ab1df0a4-6f0c-47cc-9a24-71c0a44d219b', 0.00, NULL, '2025-06-16 02:46:09.112+00'),
+('6240ab95-10ef-47e8-88d4-0c02051c9ff1', 16.00, NULL, '2025-06-16 02:46:45.431+00'),
+('d1e8eb48-4318-4986-bad7-2c40e5c15f98', 16.30, NULL, '2025-06-16 02:46:58.897+00'),
+('ffd4736e-2143-487e-b621-429bbc3e4a0c', 0.00, NULL, '2025-06-16 02:46:58.898+00'),
+('c93a9ca9-b9d2-47f8-a15c-9ef9215c65a3', 7.00, NULL, '2025-06-16 02:47:42.027+00'),
+('d878a9ec-cb43-40c8-a3cb-8a310b143123', 0.00, NULL, '2025-06-16 02:47:42.028+00'),
+('a10806d6-19e2-43bc-a923-1f23145c67f7', 0.00, NULL, '2025-06-16 02:48:30.225+00'),
+('ebb86709-87e3-49b3-9600-80b2c6bddbb3', 0.00, NULL, '2025-06-16 02:48:30.227+00'),
+('0089b40d-028a-4af3-8c68-f150c0bcfcf2', 0.00, NULL, '2025-06-16 02:48:33.755+00'),
+('8028d41b-e39d-4928-ab42-52c2f5817950', 8.00, NULL, '2025-06-16 02:48:33.754+00'),
+('5d3e0b57-80fa-4099-b318-48ee839610ba', 0.00, NULL, '2025-06-16 02:49:14.218+00'),
+('20ac5f38-f9c1-4f19-a5e0-cae9da20e27d', 16.80, NULL, '2025-06-16 02:49:14.217+00'),
+('77a9d9bf-c3de-4c91-b8a0-616ba28befb3', 17.87, NULL, '2025-06-16 02:56:44.417+00'),
+('b57a1568-62a7-4ac8-ac43-79faaec321dc', 16.80, NULL, '2025-06-16 02:59:26.226+00'),
+('7ddb30c4-21eb-4714-8e36-d600e419e0dc', 18.80, NULL, '2025-06-16 02:59:32.569+00'),
+('a7d2df1b-ad5b-4c91-933d-8fa2b7d9b207', 7.00, NULL, '2025-06-16 02:59:58.344+00'),
+('b83f9cc6-db61-4ff5-af4c-6b04ea1bbe82', 16.84, NULL, '2025-06-29 21:08:50.892+00'),
+('fea8a40d-54ae-4bd6-950e-b7bb126b7768', 7.00, NULL, '2025-06-29 22:54:24.419+00'),
+('f9edc1ba-a4fe-47fc-b3bb-ee8b0d4f60d2', 16.84, NULL, '2025-06-29 22:54:38.793+00'),
+('b85cde1b-cdbe-4bc0-b190-6e6b04cc1a14', 14.75, NULL, '2025-07-02 06:44:21.967+00');
+
+-- 7. PURCHASE ORDERS
+INSERT INTO public.purchase_orders (id, order_date, total_amount, employee_id, supplier_id, status, price_unit, paid_amount, balance_due) VALUES
+('1651c808-b1d4-453c-bea3-7ae9622015f5', '2025-06-23 04:41:09.431+00', 130.00, NULL, '2736149c-6ed2-43d5-aa44-a76043c159ba', 'completada', NULL, 130, 0),
+('8b76190e-6841-4753-b96a-9d598a38fc6a', '2025-05-04 22:38:41.461+00', 100.00, NULL, '2736149c-6ed2-43d5-aa44-a76043c159ba', 'parcialmente pagada', 2, 34, 66),
+('0828866f-4c56-4115-bb27-c80a1f12ea9b', '2025-07-06 21:55:44.497+00', 0.00, 'a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1', '2736149c-6ed2-43d5-aa44-a76043c159ba', 'pending', 0, 0, 0),
+('1d8f90ba-8b7c-4f5b-92d3-ce65d30fe086', '2025-06-21 06:31:09.501+00', 90.81, 'a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1', '2736149c-6ed2-43d5-aa44-a76043c159ba', 'parcialmente pagada', 8, 72.82, 17.99),
+('49ae27a6-6f3e-4d2e-8d3c-c6324dabc795', '2025-07-07 02:14:09.384+00', 0.00, 'a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1', '7a2dcbf3-ed00-426b-a5d4-c558b98bb7e1', 'pending', 0, 0, 0),
+('63b75ca1-d1e3-42b5-a7b0-ca44cc4d60a7', '2025-07-07 02:14:52.439+00', 0.00, 'a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1', 'b9c2394c-5503-408f-8b81-58866b9ca05f', 'pending', 0, 0, 0);
+
+-- 8. PURCHASE ORDER ITEMS
+INSERT INTO public.purchase_order_items (id, order_id, product_id, quantity, total_price) VALUES
+('3b6d76b4-e972-4893-a8ef-6f2e47bb00aa', '8b76190e-6841-4753-b96a-9d598a38fc6a', '326042b0-bf0f-4ca2-aadf-693dc36f8517', 50, 100.00),
+('1e7ac815-93f4-491a-9d35-e22f22fb175e', '1651c808-b1d4-453c-bea3-7ae9622015f5', '2546593a-5301-41d4-9a1f-2f99d441948e', 1, 10.00),
+('94072200-a25f-43dd-87e2-1d0401d9fe9c', '1651c808-b1d4-453c-bea3-7ae9622015f5', 'fb3c0fd3-0a82-47cf-b0f1-c09817439f09', 12, 120.00),
+('db432c9e-6c05-4bf5-9382-5976d891e5b8', '0828866f-4c56-4115-bb27-c80a1f12ea9b', '60fda9e7-d773-4944-aa6f-7c733688ed1f', 3, 200.00),
+('67950410-46f2-4742-8095-6e274878e725', '49ae27a6-6f3e-4d2e-8d3c-c6324dabc795', '6209bf76-0865-4488-9ffa-fbe584f7e3e1', 2, 900.00),
+('0eb8bfee-9ca6-4ac3-9689-0634f86ec2a5', '49ae27a6-6f3e-4d2e-8d3c-c6324dabc795', 'bffb1a70-35c1-489f-b4bd-a017f2eb13ed', 1, 200.00),
+('b24b9215-b929-4244-b51f-d1e79655218a', '63b75ca1-d1e3-42b5-a7b0-ca44cc4d60a7', '6209bf76-0865-4488-9ffa-fbe584f7e3e1', 1, 200.00);
+
+-- 9. PURCHASE ORDER PAYMENTS
+INSERT INTO public.purchase_order_payments (id, order_id, payment_date, amount, payment_method, employee_id) VALUES
+('ca280c9f-39f1-498f-b1a9-f0f8c77ac8cb', '1d8f90ba-8b7c-4f5b-92d3-ce65d30fe086', '2025-06-22 21:51:36.38+00', 60.8, 'Efectivo', NULL),
+('8232740b-ccf6-425a-8143-420c3d89e354', '1651c808-b1d4-453c-bea3-7ae9622015f5', '2025-06-23 04:42:09.665+00', 38, 'Otro', NULL),
+('49738cea-024e-478f-92c6-e273c365e115', '1651c808-b1d4-453c-bea3-7ae9622015f5', '2025-06-23 04:42:38.01+00', 21, 'Transferencia Bancaria', NULL),
+('405d1e5e-08f5-4b30-bf1c-823739c3f4a0', '1651c808-b1d4-453c-bea3-7ae9622015f5', '2025-06-29 06:06:55.713+00', 71, 'Efectivo', NULL),
+('d441fa30-79bb-4d02-8db7-d6b0e510e119', '1d8f90ba-8b7c-4f5b-92d3-ce65d30fe086', '2025-06-22 21:51:44.776+00', 0.02, 'Efectivo', NULL),
+('699ddbd6-4c2e-46fc-912d-08695f1a359f', '8b76190e-6841-4753-b96a-9d598a38fc6a', '2025-06-30 06:17:09.575+00', 10, 'Transferencia Bancaria(QR)', NULL),
+('6d49273d-6458-447f-bd3d-03fd91a33ac0', '8b76190e-6841-4753-b96a-9d598a38fc6a', '2025-06-30 06:17:23.628+00', 9, 'Efectivo', NULL),
+('e29b1691-a21f-4b93-ae1e-bc00fdf8e728', '8b76190e-6841-4753-b96a-9d598a38fc6a', '2025-06-30 06:17:30.805+00', 8, 'Efectivo', NULL),
+('77696a3a-436c-4c39-9b6b-2cc67ff9f982', '8b76190e-6841-4753-b96a-9d598a38fc6a', '2025-06-30 06:17:38.475+00', 7, 'Otro', NULL),
+('05f347c3-534e-47a7-a3ac-826f767ac2f8', '1d8f90ba-8b7c-4f5b-92d3-ce65d30fe086', '2025-07-06 22:49:57.763+00', 12, 'efectivo', 'a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1');
+
+-- 10. PURCHASE ORDER REMINDERS
+INSERT INTO public.purchase_order_reminders (id, order_id, product_id, quantity_pending, created_at, resolved_at, is_resolved) VALUES
+('21a638c2-719f-417d-a9e2-0c7787a74ac4', '0828866f-4c56-4115-bb27-c80a1f12ea9b', '60fda9e7-d773-4944-aa6f-7c733688ed1f', 3, '2025-07-06 21:55:44.858+00', '2025-07-06 21:56:59.654+00', true),
+('9ae1df84-3001-4c7f-a803-676d47855ef9', '49ae27a6-6f3e-4d2e-8d3c-c6324dabc795', '6209bf76-0865-4488-9ffa-fbe584f7e3e1', 2, '2025-07-07 02:14:09.732+00', '2025-07-07 02:14:21.268+00', true),
+('3067c376-f26d-4ab9-b840-a65aa50d31b5', '49ae27a6-6f3e-4d2e-8d3c-c6324dabc795', 'bffb1a70-35c1-489f-b4bd-a017f2eb13ed', 1, '2025-07-07 02:14:09.732+00', '2025-07-07 02:14:23.573+00', true),
+('2d2dd1eb-233f-4a07-b651-cd27ebb30e47', '63b75ca1-d1e3-42b5-a7b0-ca44cc4d60a7', '6209bf76-0865-4488-9ffa-fbe584f7e3e1', 1, '2025-07-07 02:14:52.716+00', NULL, false);
+
+-- 11. SALES
+INSERT INTO public.sales (id, sale_date, total_sale, employee_id, type_of_payment, quantity_products, store_id, customer_name, customer_ci, customer_phone) VALUES
+('1e56da37-3dc6-465b-8d17-f8e94b9498d4', '2025-06-06 16:35:51.564855+00', 33.92, '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', 'cash', 2, NULL, NULL, NULL, NULL),
+('d304ab35-1e4e-48f9-b342-d21e09e77298', '2025-06-07 15:52:22.384856+00', 16.96, '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', 'cash', 1, NULL, NULL, NULL, NULL),
+('ad846979-3798-4225-9873-87d7a33c7020', '2025-06-14 19:14:54.066549+00', 16.96, '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', 'cash', 1, NULL, NULL, NULL, NULL),
+('796e36e1-c282-48b9-8b50-7d194b040683', '2025-06-14 21:54:48.728028+00', 33.92, '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', 'cash', 2, NULL, NULL, NULL, NULL),
+('426c65fc-ef1c-4469-bd9a-b6a58cdc3044', '2025-07-01 20:44:36.498457+00', 1392.00, '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', 'cash', 1, NULL, NULL, NULL, NULL),
+('7d4eca71-76f6-4a31-ae32-7aaae6c4af64', '2025-07-02 02:32:41.951883+00', 22272.00, '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', 'cash', 2, NULL, NULL, NULL, NULL),
+('df8f713d-32de-49f0-8cdd-e900a9239cd9', '2025-07-02 02:34:10.701+00', 104878.00, 'a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1', 'efectivo', 3, NULL, NULL, NULL, NULL),
+('21a393cf-9e51-4901-acc0-acd13f0dc1b5', '2025-07-02 07:39:24.122+00', 10304.00, '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', 'efectivo', 1, '0510f52e-8e34-455d-946b-048351d68207', NULL, NULL, NULL),
+('78e3325c-c31c-4409-ae6c-4a3186ee8b2f', '2025-07-02 09:03:20.564+00', 18100.00, 'a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1', 'efectivo', 2, '0510f52e-8e34-455d-946b-048351d68207', NULL, NULL, NULL),
+('48dd51ad-b062-4439-a77e-f60fdd677261', '2025-07-03 20:40:17.462+00', 3020.00, 'a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1', 'efectivo', 1, '66b418af-22f4-48e4-8db7-7301b89e69ae', NULL, NULL, NULL),
+('b30caa63-20ab-44ed-ae2b-4060502be7b1', '2025-07-04 19:09:33.614+00', 9759.00, '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', 'efectivo', 2, '0510f52e-8e34-455d-946b-048351d68207', NULL, NULL, NULL),
+('fe65c601-359c-4706-bb4e-55b606520386', '2025-07-05 16:19:53.068+00', 13575.00, '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', 'efectivo', 1, '0510f52e-8e34-455d-946b-048351d68207', NULL, NULL, NULL),
+('27b675cc-45af-480c-a72a-26e3bdb44b72', '2025-07-06 21:16:53.784+00', 44450.00, 'a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1', 'qr', 1, '66b418af-22f4-48e4-8db7-7301b89e69ae', 'Juan', '123456789', NULL),
+('4c10a87a-fc8d-4d85-9805-688f5a835667', '2025-07-07 02:09:18.886+00', 47470.00, 'a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1', 'efectivo', 2, '66b418af-22f4-48e4-8db7-7301b89e69ae', NULL, NULL, NULL);
+
+-- 12. SALE PRODUCTS
+INSERT INTO public.sale_product (id, sale_id, product_id, barcode_id, mei_codes) VALUES
+('f4ab6b13-5bfa-4671-af74-47fc32e602ad', '1e56da37-3dc6-465b-8d17-f8e94b9498d4', 'fb3c0fd3-0a82-47cf-b0f1-c09817439f09', NULL, NULL),
+('3d30bb5b-448f-4f82-bb59-791b7e6a917c', '1e56da37-3dc6-465b-8d17-f8e94b9498d4', '2546593a-5301-41d4-9a1f-2f99d441948e', NULL, NULL),
+('f4e4f37c-1e35-458b-8d6c-e855e1fcd519', 'd304ab35-1e4e-48f9-b342-d21e09e77298', 'fb3c0fd3-0a82-47cf-b0f1-c09817439f09', NULL, NULL),
+('269b6d72-9b91-4195-ab08-152c8a279431', 'ad846979-3798-4225-9873-87d7a33c7020', 'fb3c0fd3-0a82-47cf-b0f1-c09817439f09', NULL, NULL),
+('0e1ff071-f77c-4a71-b3ff-419a2be4d19a', '796e36e1-c282-48b9-8b50-7d194b040683', '2546593a-5301-41d4-9a1f-2f99d441948e', NULL, NULL),
+('ca74f8d7-cb25-4de1-b38b-26c0a4427979', '796e36e1-c282-48b9-8b50-7d194b040683', 'fb3c0fd3-0a82-47cf-b0f1-c09817439f09', NULL, NULL),
+('9ec7c203-d7af-4b7b-ba09-3475f8313dd5', '426c65fc-ef1c-4469-bd9a-b6a58cdc3044', '3548b92e-b10f-4cac-9995-9a0bde956aa5', NULL, NULL),
+('8ae6be58-da84-435b-b203-7b153e87d0c8', '7d4eca71-76f6-4a31-ae32-7aaae6c4af64', '3548b92e-b10f-4cac-9995-9a0bde956aa5', NULL, NULL),
+('2618ac6a-7ff7-46c4-a19c-8eb138a346b5', '7d4eca71-76f6-4a31-ae32-7aaae6c4af64', '60fda9e7-d773-4944-aa6f-7c733688ed1f', NULL, NULL),
+('a2f2dbff-c3cf-4687-8d54-eb135f919244', 'df8f713d-32de-49f0-8cdd-e900a9239cd9', '60fda9e7-d773-4944-aa6f-7c733688ed1f', NULL, NULL),
+('79246e22-6f88-4afd-ac0d-d18a3c8c53d9', 'df8f713d-32de-49f0-8cdd-e900a9239cd9', '3548b92e-b10f-4cac-9995-9a0bde956aa5', NULL, NULL),
+('1d05ece6-378b-46d6-8d74-44d6a6f12be4', 'df8f713d-32de-49f0-8cdd-e900a9239cd9', '60fda9e7-d773-4944-aa6f-7c733688ed1f', NULL, NULL),
+('84d0cb69-7bfe-4be9-8c86-877e9414096f', '21a393cf-9e51-4901-acc0-acd13f0dc1b5', '6b27483f-ba83-4d2d-bd79-cf9f84c1b77f', NULL, NULL),
+('abdb558f-0960-4710-8054-c21323d48cf7', '78e3325c-c31c-4409-ae6c-4a3186ee8b2f', '6b27483f-ba83-4d2d-bd79-cf9f84c1b77f', '8a8eb24e-789e-46c0-bfe2-1324d3a7c1fe', ARRAY['1211212','121212']),
+('35525d48-9573-47ba-af59-6a9d84be2e8b', '78e3325c-c31c-4409-ae6c-4a3186ee8b2f', '6b27483f-ba83-4d2d-bd79-cf9f84c1b77f', 'f60440fd-98e8-4c71-bbf2-5dd983fa8aff', ARRAY['2112']),
+('6a071507-728d-4c38-b409-8d3a14a4118a', '48dd51ad-b062-4439-a77e-f60fdd677261', '326042b0-bf0f-4ca2-aadf-693dc36f8517', '9eeea4ca-1456-4adc-9964-471591f53cdb', ARRAY['357649370040290','IMEI2:  357649377915874']),
+('7c64a836-b256-45f6-bbd7-c82f575c6b3b', 'b30caa63-20ab-44ed-ae2b-4060502be7b1', '6b27483f-ba83-4d2d-bd79-cf9f84c1b77f', '9bc03384-d026-4b1e-8ac4-0b0ae21a67c8', ARRAY['76437']),
+('c0eb30d2-ab9b-4057-9128-7090f07d65f8', 'b30caa63-20ab-44ed-ae2b-4060502be7b1', '1d6cfa02-1200-42d1-bd8c-3136c92a5225', 'c77da433-67dd-48ad-808d-2cabf4d4d33d', ARRAY['76437']),
+('d968e90e-62e4-4ef8-bfef-a2c89ee3f830', 'fe65c601-359c-4706-bb4e-55b606520386', '2546593a-5301-41d4-9a1f-2f99d441948e', 'f147db13-039d-464d-a8a2-ebcc769946d0', ARRAY['123456789']),
+('92a277a1-1701-420f-a3cf-364e94a8fb5f', '27b675cc-45af-480c-a72a-26e3bdb44b72', '60fda9e7-d773-4944-aa6f-7c733688ed1f', '4ba4e00b-0049-436e-bd70-202485ff128b', ARRAY['41324324','432143214','413242134']),
+('3376914f-759e-46da-bf14-139447d32ab4', '4c10a87a-fc8d-4d85-9805-688f5a835667', 'a7f03e54-8de5-46d0-a171-5bca52ad395b', '185424e7-d750-49a6-a165-e06e61255c31', ARRAY['12312321','213213','213213']),
+('969bef65-9f43-4792-bc48-29e108b8167d', '4c10a87a-fc8d-4d85-9805-688f5a835667', '60fda9e7-d773-4944-aa6f-7c733688ed1f', '8a4f7f48-6bef-4acd-be53-884ad3a94e17', ARRAY[]::text[]);
+
+-- 13. TRANSFERS
+INSERT INTO public.transfers (id, transfer_date, employee_id, store_origin_id, store_destiny_id) VALUES
+('3dd45da2-0f9e-4628-a1c0-afbd51c54aeb', '2025-06-04 17:24:10.708146+00', '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', '66b418af-22f4-48e4-8db7-7301b89e69ae', '66b418af-22f4-48e4-8db7-7301b89e69ae'),
+('47ea5980-0cdf-4955-8463-fe70e27138a6', '2025-06-04 18:45:48.861314+00', '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', '66b418af-22f4-48e4-8db7-7301b89e69ae', '66b418af-22f4-48e4-8db7-7301b89e69ae'),
+('7174d732-26bc-46b8-a2ab-9a8f463f1c7b', '2025-06-04 18:54:49.358448+00', '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', 'e24db9e8-0cd2-47d3-a37a-36332a1a576e', '66b418af-22f4-48e4-8db7-7301b89e69ae'),
+('5e84c88d-c536-4f06-bc8e-5690d667fdb0', '2025-06-04 19:04:10.697473+00', '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', 'e24db9e8-0cd2-47d3-a37a-36332a1a576e', '66b418af-22f4-48e4-8db7-7301b89e69ae'),
+('63a548e7-4983-46fe-b6e4-31b89ce57c41', '2025-06-04 19:34:23.592903+00', '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', 'e24db9e8-0cd2-47d3-a37a-36332a1a576e', '66b418af-22f4-48e4-8db7-7301b89e69ae'),
+('dc8427fd-770d-4160-bd6d-dab4be704fde', '2025-06-05 00:46:35.143861+00', '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', 'e24db9e8-0cd2-47d3-a37a-36332a1a576e', '66b418af-22f4-48e4-8db7-7301b89e69ae'),
+('a6ae60db-990e-4904-9fc5-f62d5faf4cb4', '2025-06-05 01:07:20.415372+00', '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', '66b418af-22f4-48e4-8db7-7301b89e69ae', 'e24db9e8-0cd2-47d3-a37a-36332a1a576e'),
+('6e444e4c-4d41-4eb4-9c4f-a8334324c2c2', '2025-06-05 19:37:38.085343+00', '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', 'e24db9e8-0cd2-47d3-a37a-36332a1a576e', '66b418af-22f4-48e4-8db7-7301b89e69ae'),
+('227eea73-11b6-41ec-b06f-d885e043adfa', '2025-07-03 21:12:52.193+00', '5fa3487c-e2f6-4730-8b49-6d81e10b8f28', '0510f52e-8e34-455d-946b-048351d68207', '66b418af-22f4-48e4-8db7-7301b89e69ae'),
+('58c2f1dc-af39-47b7-80de-480d03dc0b9b', '2025-07-05 14:41:43.021+00', 'a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1', '66b418af-22f4-48e4-8db7-7301b89e69ae', '0510f52e-8e34-455d-946b-048351d68207'),
+('5d089edf-b057-48de-a550-cfb814935cb2', '2025-07-05 14:42:09.974+00', 'a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1', '66b418af-22f4-48e4-8db7-7301b89e69ae', '0510f52e-8e34-455d-946b-048351d68207'),
+('71ed2970-1e9e-4367-bbc8-dcf31ff0d57f', '2025-07-05 14:42:21.413+00', 'a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1', '66b418af-22f4-48e4-8db7-7301b89e69ae', '0510f52e-8e34-455d-946b-048351d68207'),
+('b42be359-ba81-4b5e-9bf3-3f84a0ca3695', '2025-07-05 14:41:42.599+00', 'a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1', '66b418af-22f4-48e4-8db7-7301b89e69ae', '0510f52e-8e34-455d-946b-048351d68207'),
+('08cd02c5-bdbf-4a63-8e9b-3325cd984f88', '2025-07-05 14:41:39.583+00', 'a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1', '66b418af-22f4-48e4-8db7-7301b89e69ae', '0510f52e-8e34-455d-946b-048351d68207'),
+('11f968bc-3ca9-4928-b6af-c8a5f7a79b61', '2025-08-13 04:09:29.629+00', 'a13e04d5-2f7b-4e8d-a7cd-6800b5069ef1', '0510f52e-8e34-455d-946b-048351d68207', 'e24db9e8-0cd2-47d3-a37a-36332a1a576e');
+
+-- 14. TRANSFER PRODUCTS
+INSERT INTO public.transfer_product (id, product_id, transfer_id, barcode_id) VALUES
+('b4aafbdc-bfd8-42de-bb3b-1816670802e0', 'fb3c0fd3-0a82-47cf-b0f1-c09817439f09', '3dd45da2-0f9e-4628-a1c0-afbd51c54aeb', NULL),
+('731ac058-aefe-44b8-8664-efca6958598c', 'fb3c0fd3-0a82-47cf-b0f1-c09817439f09', '47ea5980-0cdf-4955-8463-fe70e27138a6', NULL),
+('d4b5d5c2-16c3-48e2-ad39-872e4887b4ef', '1a0f49d0-40b5-4b86-8c75-ac29dc44b848', '47ea5980-0cdf-4955-8463-fe70e27138a6', NULL),
+('fed48884-76e8-4535-af45-e35a35329d8e', 'fb3c0fd3-0a82-47cf-b0f1-c09817439f09', '7174d732-26bc-46b8-a2ab-9a8f463f1c7b', NULL),
+('25ebeecf-2387-41e7-8589-be55fc275064', '1a0f49d0-40b5-4b86-8c75-ac29dc44b848', '5e84c88d-c536-4f06-bc8e-5690d667fdb0', NULL),
+('5987a2a2-7289-4737-ad60-13a88bcdb552', 'fb3c0fd3-0a82-47cf-b0f1-c09817439f09', '5e84c88d-c536-4f06-bc8e-5690d667fdb0', NULL),
+('dbdd9734-9a8a-45ff-a708-84caaf857d83', 'fb3c0fd3-0a82-47cf-b0f1-c09817439f09', '63a548e7-4983-46fe-b6e4-31b89ce57c41', NULL),
+('0d528193-b39b-4b73-a61d-4dec808e650b', '1fc09ef0-121d-4e7f-8674-778daa31279e', 'dc8427fd-770d-4160-bd6d-dab4be704fde', NULL),
+('9a198cbf-295d-44a4-bf70-69584f281dab', '2546593a-5301-41d4-9a1f-2f99d441948e', 'dc8427fd-770d-4160-bd6d-dab4be704fde', NULL),
+('cf7488a0-624b-414f-aa80-55136c99168b', '1a0f49d0-40b5-4b86-8c75-ac29dc44b848', 'a6ae60db-990e-4904-9fc5-f62d5faf4cb4', NULL),
+('d91af594-1512-4afd-aebf-7e1df3f5ea4c', '2546593a-5301-41d4-9a1f-2f99d441948e', 'a6ae60db-990e-4904-9fc5-f62d5faf4cb4', NULL),
+('8bd05dc8-8203-4c29-8f57-51558d12fa4e', '1fc09ef0-121d-4e7f-8674-778daa31279e', 'a6ae60db-990e-4904-9fc5-f62d5faf4cb4', NULL),
+('cd25ad59-c0d4-469c-a5fe-dfe581f8b580', 'fb3c0fd3-0a82-47cf-b0f1-c09817439f09', '6e444e4c-4d41-4eb4-9c4f-a8334324c2c2', NULL),
+('0b0d4c29-48d3-4e62-b7d2-2ebed98c40c2', '6b27483f-ba83-4d2d-bd79-cf9f84c1b77f', '227eea73-11b6-41ec-b06f-d885e043adfa', 'f2be74e7-4b75-4882-8a43-3897fa76cb28'),
+('4a4d37ab-0150-4c49-9356-7c97891653d3', 'a7f03e54-8de5-46d0-a171-5bca52ad395b', '58c2f1dc-af39-47b7-80de-480d03dc0b9b', '5fbfdd66-a502-4d6f-a0d3-3cc448bfce93'),
+('2a22c783-0ded-40de-9245-f3fe8a889980', 'a7f03e54-8de5-46d0-a171-5bca52ad395b', '71ed2970-1e9e-4367-bbc8-dcf31ff0d57f', '5fbfdd66-a502-4d6f-a0d3-3cc448bfce93'),
+('437a9287-29b7-4d2f-92d3-cf24961d1fda', 'a7f03e54-8de5-46d0-a171-5bca52ad395b', '5d089edf-b057-48de-a550-cfb814935cb2', '5fbfdd66-a502-4d6f-a0d3-3cc448bfce93'),
+('97f11d6f-0c35-45c7-b58b-4846b983b36a', 'a7f03e54-8de5-46d0-a171-5bca52ad395b', '08cd02c5-bdbf-4a63-8e9b-3325cd984f88', '5fbfdd66-a502-4d6f-a0d3-3cc448bfce93'),
+('d1d0bff1-e57f-49d6-8f14-c524614c261b', 'a7f03e54-8de5-46d0-a171-5bca52ad395b', 'b42be359-ba81-4b5e-9bf3-3f84a0ca3695', '5fbfdd66-a502-4d6f-a0d3-3cc448bfce93'),
+('2c7e4107-4c44-4d9e-b736-e2e92f3aa9e4', '6b27483f-ba83-4d2d-bd79-cf9f84c1b77f', '11f968bc-3ca9-4928-b6af-c8a5f7a79b61', 'e45a61be-9b8a-465d-92f3-a2f7c7511cb2');
